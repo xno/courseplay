@@ -281,3 +281,157 @@ OR nil if closedlist==nil
 	closedlist = nil
 	return path
 end
+
+courseplay.algo = {};
+
+--[[
+A* Algorithm
+Alternative Implementation
+-- A*: Best-First Search (Dijkstra) with lower bound --
+by Horoman 2013
+--]]
+
+function courseplay.algo.a_star(start, destination, costs)
+--[[ PRE
+	start: start node id
+	destination: destination node id
+	costs: non negative costs form one node to the other (costs[i][j] = cost from i to j; nil or negative numbers are treated as infinity)
+--]]
+--[[ POST
+	path: if success: path {1=start, 2=i, ... ,n=destination}, if no success: empty matrix
+--]]
+		
+	local totalCosts = {};
+	local parent = {};
+	local h = 0;
+	local compare;
+	local insert;
+	local pos;
+	local k;
+	local path = {};
+	
+	-- initialize
+	local openBin = {start};
+	totalCosts[start] = 0;
+	parent[start] = 0;
+	
+	-- find path
+	while #openBin > 0 do
+		current = table.remove(openBin); -- remove last element in bin -> order bin in a way the element, that should be removed is at the end...
+		if costs[current] ~= nil then -- else no children...
+			for i,a in pairs(costs[current]) do -- child with id i and cost a from current to i
+				if a >= 0 then -- otherways it is treated as infinity -> no path / not a child
+					
+					-- avoid nil and negative values (infinity):
+					compare = 'both';
+					if (totalCosts[i] == nil or totalCosts[i] < 0) then
+						if (totalCosts[destination] == nil or totalCosts[destination] < 0) then
+							compare = 'none'; -- both are infinity
+						else
+							compare = 'destination' -- child is infinity, destination not
+						end
+					else
+						if (totalCosts[destination] == nil or totalCosts[destination] < 0) then
+							compare = 'child'
+						end		
+					end
+					
+					-- update h if needed
+					if compare == 'both' or compare == 'destination' then
+						--todo h =... (with h=0 it is Dijkstra, so it will work anyway...)
+					end
+					
+					-- check if this child is a candidate
+						-- d_current + a < d_i AND
+						-- d_current + a + h_i < d_destination
+					if compare == 'none' or -- d_i and d_destination are infinity -> both statements true
+						(compare == 'both' and totalCosts[current] + a < totalCosts[i] and totalCosts[current] + a + h < totalCosts[destination]) or
+						(compare == 'child' and totalCosts[current] + a < totalCosts[i]) or 
+						(compare == 'destination' and totalCosts[current] + a + h < totalCosts[destination]) then
+						-- update totalCosts
+						totalCosts[i] = totalCosts[current] + a;
+						-- update parent
+						parent[i] = current;
+						-- put into open bin if not already there and not destination	
+						if i ~= destination then
+							insert = true;
+							for j=1,#openBin do
+								if i == openBin[j] then
+									insert = false;
+								end
+							end
+							if insert then
+								-- be careful: open bin is a sorted list!
+								pos = courseplay.algo.special_interpolation_search(openBin, totalCosts, totalCosts[i]);
+								table.insert(openBin, pos, i);
+							end
+						end
+					end -- check if candidate
+									
+				end
+			end -- for i,a in pairs(costs[current])
+		end -- if costs[current] ~= nil
+	end -- while #openBin > 0	
+	-- done
+	
+	-- get path
+	if totalCosts[destination]~=nil and totalCosts[destination]>=0 then -- totalCosts of destination have to be less than infinity otherwise no path was found.
+		k = destination;
+		while parent[k] > 0 do
+			table.insert(path, 1, parent[k]);
+			k = parent[k]:
+		end
+	end
+	
+	return path
+	
+end
+
+function courseplay.algo.special_interpolation_search(ids,values,X)
+--[[ PRE
+	ids: the sorted list to be search in, the ordering of the ids is not by id but by the linked value. (ids = {1=i, 2=j, ... , n=k})
+	values: the values of the sorted list. (values = {j=x, k=y, ... i=z} , i,j,k are ids and x > y > z !!)
+	X: value to be found
+--]]
+--[[ POST
+	the index where the value X should be inserted
+--]]
+	local left = 1;
+	local right = #ids;
+	local mid = 0;
+	
+	if X <= values[ids[right]] then
+		mid = right + 1;
+		return mid;
+	elseif X > values[ids[1]] then
+		mid = 1;
+		return mid;
+	end
+	
+	while left < right-1 do
+		
+		if values[ids[right]] - values[ids[left]] == 0 then
+			mid = right + 1;
+			break;
+		end
+		
+		mid = left + ((X - values[ids[left]]) * (right - left)) / (values[ids[right]] - values[ids[left]]);
+		mid = math.floor(mid + 0.5);
+	
+		if X < values[ids[mid]] then
+			left = mid;
+		elseif X > values[ids[mid]] then
+			right = mid;
+		else
+			mid = mid + 1;
+			break;
+		end
+		
+	end --end while
+	
+	if right - left == 1 then
+		mid = right;
+	end
+	
+	return mid;
+end
