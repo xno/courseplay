@@ -304,7 +304,8 @@ function courseplay.algo.a_star(start, destination, nodes, costs)
 	path: if success: path {1=start, 2=i, ... ,n=destination}, if no success: empty matrix
 --]]
 
--- todo: use binary heap instead of sorted array
+-- use binary heap instead of sorted array?
+-- disadvantage: update position of node in bin needs to loop through whole bin in order to find the node to update (with a sorted array, it can be searched for the value by interpolation search...)
 		
 	local _nodes = {};
 	local dx, dy, pos, k;
@@ -334,23 +335,38 @@ function courseplay.algo.a_star(start, destination, nodes, costs)
 					end
 					
 					if _nodes[current].d + a < _nodes[i].d and _nodes[current].d + a + _nodes[i].h < _nodes[destination].d then
+					
+						if i~= destination and _nodes[i].inBin then
+							-- the node to update is already in the openBin, find it there:
+							pos = courseplay.algo.findInOpenBin(openBin,_nodes,i);
+						end
+						
 						-- update total costs (distance)
 						_nodes[i].d = _nodes[current].d + a;
 						-- update parent
 						_nodes[i].parent = current;
+						
 						-- put into open bin if not already there and not destination
 						if i~= destination then
 							if (not _nodes[i].inBin) then
-								pos = courseplay.algo.special_interpolation_search(openBin, _nodes, _nodes[i].d);
+								pos = courseplay.algo.find_insert_position(openBin, _nodes, _nodes[i].d);
 								table.insert(openBin, pos, i);
 								_nodes[i].inBin = true;
 							else
-								--todo: else: as the costs for the node were updated, also its position in the Bin might have to be updated...
-							end
-						end
-					end
+								if pos then
+									-- update only pos
+									while _nodes[openBin[pos]].d <= _nodes[openBin[pos + 1]].d do
+										openBin[pos], openBin[pos + 1] = openBin[pos + 1], openBin[pos]
+										pos = pos + 1;
+									end
+								else
+									-- should never happen!! if one should update the whole openBin
+								end
+							end -- inBin
+						end -- i~=destination
+					end -- compare with d_i and d_destination
 									
-				end
+				end -- a >= 0
 			end -- for i,a in pairs(costs[current])
 		end -- if costs[current] ~= nil
 		
@@ -369,7 +385,7 @@ function courseplay.algo.a_star(start, destination, nodes, costs)
 	
 end
 
-function courseplay.algo.special_interpolation_search(bin, _nodes, X)
+function courseplay.algo.find_insert_position(bin, _nodes, X)
 --[[ PRE
 	bin: the sorted list to be search in, the ordering of the ids is not by id but by the linked value. (bin = {1=i, 2=j, ... , n=k})
 	_nodes: the values of the sorted list. (_nodes = {j={d=x}, k={d=z}, ... i={d=y}} , i,j,k are ids and x > y > z !!)
@@ -417,3 +433,102 @@ function courseplay.algo.special_interpolation_search(bin, _nodes, X)
 	
 	return mid;
 end
+
+function courseplay.algo.interpolation_search(bin, _nodes, X)
+
+	local left = 1;
+	local right = #bin;
+	local mid = 0;
+	local maxIt = 5;
+	local i = 1
+	
+	if X < _nodes[bin[right]].d then
+		mid = nil;
+	elseif X > _nodes[bin[left]].d then
+		mid = nil;
+	else
+	
+		while left < right and i <= maxIt do
+		
+			if _nodes[bin[right]].d - _nodes[bin[left]].d == 0 then
+				if _nodes[bin[left]].d == X then
+					mid = left;
+				else
+					mid = nil;
+				end
+				break;
+			end
+			
+			mid = left + ((X - _nodes[bin[left]].d) * (right - left)) / (_nodes[bin[right]].d - _nodes[bin[left]].d);
+			mid = math.floor(mid + 0.5);
+			
+			print('left: ' .. tostring(left))
+			print('right: ' .. tostring(right))
+			print('mid: ' .. tostring(mid))
+		
+			if X < _nodes[bin[mid]].d then
+				if left < mid + 1 then
+					left = mid + 1;
+				else
+					mid = nil;
+					break
+				end
+			elseif X > _nodes[bin[mid]].d then
+				if right > mid - 1 then
+					right = mid - 1;
+				else
+					mid = nil;
+					break
+				end
+				
+			else
+				break;
+			end
+			i = i+1;
+		end --end while
+		
+		if right - left == 0 then
+			if _nodes[bin[left]].d == X then
+				mid = left;
+			else
+				mid = nil;
+			end
+		end
+	
+	end -- else (X was to find in the array)
+	
+	return mid;
+
+end
+
+function courseplay.algo.findInOpenBin(openBin,_nodes,i)
+
+	local pos = courseplay.algo.interpolation_search(openBin, _nodes, _nodes[i].d); -- finds the position in the bin, where nodes have the same costs as i
+	local j = 0;
+	
+	while openBin[pos+j] ~= i do
+		-- now find i among the nodes with the same costs
+		if j >= 0 then
+			j = j + 1;
+			if _nodes[openBin[pos+j]].d ~= _nodes[i].d then
+				j = -1;
+			end
+		else
+			j = j - 1;
+			if _nodes[openBin[pos+j]].d ~= _nodes[i].d then
+				j = nil;
+				break;
+			end
+		end
+	end --while
+	
+	if j then
+		pos = pos + j;
+	else
+		pos = nil;
+	end
+	
+	return pos;
+
+end
+
