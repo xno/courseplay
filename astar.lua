@@ -306,64 +306,40 @@ function courseplay.algo.a_star(start, destination, nodes, costs)
 
 -- use binary heap instead of sorted array?
 -- disadvantage: update position of node in bin needs to loop through whole bin in order to find the node to update (with a sorted array, it can be searched for the value by interpolation search...)
-		
+	
+	local openBin = SortedArrayClass:new()	
 	local _nodes = {};
-	local dx, dy, pos, k;
+	local dx, dy, k;
 	local path = {};
 	
 	-- initialize
-	local openBin = {start};
-	_nodes[start] = {d=0, parent=0, inBin=true};
-	_nodes[destination] = {d=math.huge, parent=nil, h=0};
+	_nodes[start] = NodeClass:new(start, nodes[start].x, nodes[start].y);
+	_nodes[start].d = 0;
+	_nodes[start].parent = 0;
+	_nodes[destination] = NodeClass:new(destination, nodes[destination].x, nodes[destination].y);
+	
+	openBin.insert(_nodes[start]);
+	_nodes[start].inBin = true;
 	
 	-- find path
 	while #openBin > 0 do
 		-- remove last element in bin -> order bin in a way the element, that should be removed is at the end...
-		current = table.remove(openBin);
-		_nodes[current].inBin = false;
+		current = openBin.pop();
+		current.inBin = false;
 		
 		-- check for children
-		if costs[current] ~= nil then -- else no children...
+		if costs[current.id] ~= nil then -- else no children...
 			-- loop through all children
-			for i,a in pairs(costs[current]) do -- child with id i and cost a from current to i
+			for i,a in pairs(costs[current.id]) do -- child with id i and cost a from current to i
 				if a >= 0 then -- otherways it is treated as infinity -> no path / not a child
 					
 					if not _nodes[i] then
-						dx = nodes[i].x - nodes[current].x;
-						dy = nodes[i].y - nodes[current].y;
-						_nodes[i] = {d=math.huge, parent=nil, inBin=false h=math.sqrt(dx*dx+dy*dy) };
+						_nodes[i] = NodeClass:new(i, nodes[i].x, nodes[i].y);
+						_nodes[i].calcH(_nodes[destination]);
 					end
 					
-					if _nodes[current].d + a < _nodes[i].d and _nodes[current].d + a + _nodes[i].h < _nodes[destination].d then
-					
-						if i~= destination and _nodes[i].inBin then
-							-- the node to update is already in the openBin, find it there:
-							pos = courseplay.algo.findInOpenBin(openBin,_nodes,i);
-						end
-						
-						-- update total costs (distance)
-						_nodes[i].d = _nodes[current].d + a;
-						-- update parent
-						_nodes[i].parent = current;
-						
-						-- put into open bin if not already there and not destination
-						if i~= destination then
-							if (not _nodes[i].inBin) then
-								pos = courseplay.algo.find_insert_position(openBin, _nodes, _nodes[i].d);
-								table.insert(openBin, pos, i);
-								_nodes[i].inBin = true;
-							else
-								if pos then
-									-- update only pos
-									while _nodes[openBin[pos]].d <= _nodes[openBin[pos + 1]].d do
-										openBin[pos], openBin[pos + 1] = openBin[pos + 1], openBin[pos]
-										pos = pos + 1;
-									end
-								else
-									-- should never happen!! if one should update the whole openBin
-								end
-							end -- inBin
-						end -- i~=destination
+					if current.d + a < _nodes[i].d and current.d + a + _nodes[i].h < _nodes[destination].d then				
+						ASTAR.updateNode(openBin, _nodes, i, current.d + a, current.id, destination);						
 					end -- compare with d_i and d_destination
 									
 				end -- a >= 0
@@ -385,73 +361,61 @@ function courseplay.algo.a_star(start, destination, nodes, costs)
 	
 end
 
-function courseplay.algo.find_insert_position(bin, _nodes, X)
---[[ PRE
-	bin: the sorted list to be search in, the ordering of the ids is not by id but by the linked value. (bin = {1=i, 2=j, ... , n=k})
-	_nodes: the values of the sorted list. (_nodes = {j={d=x}, k={d=z}, ... i={d=y}} , i,j,k are ids and x > y > z !!)
-	X: value to be found
---]]
---[[ POST
-	the index where the value X should be inserted
---]]
-	local left = 1;
-	local right = #bin;
-	local mid = 0;
+local ASTAR;
+function ASTAR.updateNode(openBin, _nodes, node_id, newD, parent, destination)
+	-- update total costs (distance)
+	-- update parent
+	-- put into open bin if not already there and not destination
+	local pos;
 	
-	if X <= _nodes[bin[right]].d then
-		mid = right + 1;
-	elseif X > _nodes[bin[1]].d then
-		mid = 1;
+	-- update parent
+	_nodes[node_id].parent = parent;
+												
+	-- put into open bin if not already there and not destination
+	if node_id ~= destination then
+		if (not _nodes[node_id].inBin) then
+			-- node is not destination and not in the bin -> put into bin
+			
+			-- update total costs (distance)
+			_nodes[node_id].d = newD;
+			
+			openBin.insert(_nodes[node_id]):
+			_nodes[node_id].inBin = true;
+		else
+			-- the node to update is already in the openBin, find it there:
+			pos = openBin.find(_nodes[node_id]);
+			
+			-- update total costs (distance)
+			_nodes[node_id].d = newD;
+			
+			if pos then
+				-- update only pos
+				openBin:updateFrom(pos);
+			end
+		end -- inBin
 	else
-	
-		while left < right-1 do
-		
-			if _nodes[bin[right]].d - _nodes[bin[left]].d == 0 then
-				mid = right + 1;
-				break;
-			end
-			
-			mid = left + ((X - _nodes[bin[left]].d * (right - left)) / (_nodes[bin[right]].d - _nodes[bin[left]].d);
-			mid = math.floor(mid + 0.5);
-		
-			if X < _nodes[bin[mid]].d then
-				left = mid;
-			elseif X > _nodes[bin[mid]].d then
-				right = mid;
-			else
-				mid = mid + 1;
-				break;
-			end
-			
-		end --end while
-		
-		if right - left == 1 then
-			mid = right;
-		end
-	
-	end -- else (X was to find in the array)
-	
-	return mid;
+		-- update total costs (distance) anyway
+		_nodes[node_id].d = newD;
+	end -- node ~= destination
 end
 
-function courseplay.algo.interpolation_search(bin, _nodes, X)
+
+function courseplay.algo.interpolation_search(bin, X)
 
 	local left = 1;
 	local right = #bin;
 	local mid = 0;
-	local maxIt = 5;
-	local i = 1
 	
-	if X < _nodes[bin[right]].d then
+	if X < bin[right] then
 		mid = nil;
-	elseif X > _nodes[bin[left]].d then
+	elseif X > bin[left] then
 		mid = nil;
 	else
 	
-		while left < right and i <= maxIt do
+		while left < right do
 		
-			if _nodes[bin[right]].d - _nodes[bin[left]].d == 0 then
-				if _nodes[bin[left]].d == X then
+			if bin[right] - bin[left] == 0 then
+				if bin[left] == X then
 					mid = left;
 				else
 					mid = nil;
@@ -459,21 +423,17 @@ function courseplay.algo.interpolation_search(bin, _nodes, X)
 				break;
 			end
 			
-			mid = left + ((X - _nodes[bin[left]].d) * (right - left)) / (_nodes[bin[right]].d - _nodes[bin[left]].d);
+			mid = left + ((X - bin[left]) * (right - left)) / (bin[right] - bin[left]);
 			mid = math.floor(mid + 0.5);
-			
-			print('left: ' .. tostring(left))
-			print('right: ' .. tostring(right))
-			print('mid: ' .. tostring(mid))
 		
-			if X < _nodes[bin[mid]].d then
+			if X < bin[mid] then
 				if left < mid + 1 then
 					left = mid + 1;
 				else
 					mid = nil;
 					break
 				end
-			elseif X > _nodes[bin[mid]].d then
+			elseif X > bin[mid] then
 				if right > mid - 1 then
 					right = mid - 1;
 				else
@@ -488,7 +448,7 @@ function courseplay.algo.interpolation_search(bin, _nodes, X)
 		end --end while
 		
 		if right - left == 0 then
-			if _nodes[bin[left]].d == X then
+			if bin[left] == X then
 				mid = left;
 			else
 				mid = nil;
@@ -501,21 +461,78 @@ function courseplay.algo.interpolation_search(bin, _nodes, X)
 
 end
 
-function courseplay.algo.findInOpenBin(openBin,_nodes,i)
+-- Class to handle sorted arrays
+local SortedArrayClass = {};
 
-	local pos = courseplay.algo.interpolation_search(openBin, _nodes, _nodes[i].d); -- finds the position in the bin, where nodes have the same costs as i
+function SortedArrayClass:new()
+	local newArr = {};
+	-- use self as template:
+	setmetatable(newArr, self);
+	self.__index = self;
+	
+	return newArr;
+end
+
+function SortedArrayClass:insert(X)
+	-- this function first performs a interpolation search. The search will return a position even if the value was not found.
+	local left = 1;
+	local right = #self;
+	local mid = 0;
+	
+	if X <= self[right] then
+		mid = right + 1;
+	elseif X > self[left] then
+		mid = 1;
+	else
+	
+		while left < right-1 do
+		
+			if self[right] - self[left] == 0 then
+				mid = right + 1;
+				break;
+			end
+			
+			mid = left + ((X - self[left]) * (right - left)) / (self[right] - self[left]);
+			mid = math.floor(mid + 0.5);
+		
+			if X < self[mid] then
+				left = mid;
+			elseif X > self[mid] then
+				right = mid;
+			else
+				mid = mid + 1;
+				break;
+			end
+			
+		end --end while
+		
+		if right - left == 1 then
+			mid = right;
+		end
+	
+	end -- else (X was to find in the array)
+	
+	table.insert(self, mid, X);
+end
+
+function SortedArrayClass:pop()
+	return table.remove(self);
+end
+
+function SortedArrayClass:find(X)
+	local pos = courseplay.algo.interpolation_search(self, X); -- finds the position in the bin, where nodes have the same costs as X
 	local j = 0;
 	
-	while openBin[pos+j] ~= i do
-		-- now find i among the nodes with the same costs
+	while self[pos+j] ~= X do
+		-- now find X among the nodes with the same costs
 		if j >= 0 then
 			j = j + 1;
-			if _nodes[openBin[pos+j]].d ~= _nodes[i].d then
+			if self[pos+j] ~= X then
 				j = -1;
 			end
 		else
 			j = j - 1;
-			if _nodes[openBin[pos+j]].d ~= _nodes[i].d then
+			if self[pos+j] ~= X then
 				j = nil;
 				break;
 			end
@@ -529,6 +546,36 @@ function courseplay.algo.findInOpenBin(openBin,_nodes,i)
 	end
 	
 	return pos;
-
 end
 
+function SortedArrayClass:updateFrom(pos)
+	while self[pos] <= self[pos + 1] do
+		self[pos], self[pos + 1] = self[pos + 1], self[pos]
+		pos = pos + 1;
+	end
+end
+
+
+-- class for nodes
+local NodeClass = {};
+
+function NodeClass:new(id,x,y)
+	local newNode = {_id=id, d=math.huge, parent=nil, h=0, inBin=false, _x=x, _y=y};
+	-- use self as template:
+	setmetatable(newNode, self);
+	self.__index = self;
+	
+	return newNode;
+end
+
+function NodeClass:calcH(destination)
+	local dx = destination._x - self._x;
+	local dy = destination._y - self._y;
+	self.h = math.sqrt(dx*dx + dy*dy);
+end
+
+function NodeClass.__lt(A,B) return (A.d < B.d) end
+function NodeClass.__le(A,B) return (A.d <= B.d) end
+function NodeClass.__add(A,B) return (A.d + B.d) end
+function NodeClass.__sub(A,B) return (A.d - B.d) end
+function NodeClass.__eq(A,B) return (A.d == B.d) end
