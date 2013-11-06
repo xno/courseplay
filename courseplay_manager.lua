@@ -1,5 +1,5 @@
 courseplay_manager = {};
-local courseplay_manager_mt = Class(courseplay_manager);
+local courseplay_manager_mt = Class(courseplay_manager); --what is this line good for?
 
 function courseplay_manager:loadMap(name)
 	if g_currentMission.cp_courses == nil then
@@ -7,6 +7,7 @@ function courseplay_manager:loadMap(name)
 		g_currentMission.cp_courses = {};
 		g_currentMission.cp_folders = {};
 		g_currentMission.cp_sorted = {item={}, info={}};
+		g_currentMission.cp_nodes = {conn={}};
 
 		if g_server ~= nil and next(g_currentMission.cp_courses) == nil then
 			courseplay_manager:load_courses()
@@ -80,6 +81,8 @@ function courseplay_manager:load_courses()
 
 		if fileExists(filePath) then
 			local cpFile = loadXMLFile("courseFile", filePath);
+			
+			-- Load courses
 			g_currentMission.cp_courses = nil -- make sure it's empty (especially in case of a reload)
 			g_currentMission.cp_courses = {}
 			local courses_by_id = g_currentMission.cp_courses
@@ -195,6 +198,7 @@ function courseplay_manager:load_courses()
 				
 			until finish_all == true;
 			
+			-- load folders
 			local j = 0
 			local currentFolder, FolderName, id, parent, folder
 			finish_all = false
@@ -237,6 +241,44 @@ function courseplay_manager:load_courses()
 				end
 				j = j + 1
 			until finish_all == true
+			
+			-- load nodes
+			g_currentMission.cp_nodes = nil;
+			g_currentMission.cp_nodes = {conn={}};
+			local nodes = g_currentMission.cp_nodes;
+			local k = 0;
+			local node;
+			finish_all = false;
+			while not finish_all do		
+				node = courseplay.courses.NodeClass:loadFromXML(cpFile, k);
+				if node == 0 then
+					finish_all = true;
+				elseif node ~= nil then
+					-- store current node
+					nodes[node.id] = node;
+				end
+				k = k + 1;
+			end
+			k = k-1;
+			
+			-- load connections
+			local conns = g_currentMission.cp_nodes.conn;
+			local l = 0;
+			local conn;
+			finish_all = false;
+			while not finish_all do
+				conn = courseplay.courses.NodeConnectionClass:loadFromXML(cpFile, l)
+				if conn == 0 then
+					finish_all = true;
+				elseif conn ~= nil then
+					if not conns[conn.id1] then
+						conns[conn.id1] = {};
+					end
+					conns[conn.id1][conn.id2] = conn;
+				end
+				l = l+1;
+			end
+			l = l-1;
 			
 			local save = false
 			if #courses_without_id > 0 then

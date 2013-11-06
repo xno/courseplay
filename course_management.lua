@@ -70,6 +70,7 @@ function courseplay:load_sorted_course(vehicle, index)
 end
 
 function courseplay:load_course(self, id, use_real_id, add_course_at_end)
+-- loads course into a vehicle
 	-- global array for courses, no refreshing needed any more
 	courseplay:reinit_courses(self);
 
@@ -108,58 +109,13 @@ function courseplay:load_course(self, id, use_real_id, add_course_at_end)
 			end;
 			courseplay:debug(string.format("course_management 92: %s: self.current_course_name=%s, self.numCourses=%s", nameNum(self), tostring(self.current_course_name), tostring(self.numCourses)), 8);
 			
-			local course1_waypoints = self.Waypoints
-			local course2_waypoints = course.waypoints
-
-			local old_distance = 51
-			local lastWP = table.getn(self.Waypoints)
-			local wp_found = false
-			local new_wp = 1
-			-- go through all waypoints and try to find a waypoint of the next course near a crossing
-
-			if add_course_at_end ~= true then
-				for number, course1_wp in pairs(course1_waypoints) do
-					--courseplay:debug(number, 3)
-					if course1_wp.crossing == true and course1_wp.merged == nil and wp_found == false and number > self.startlastload then
-						-- go through the second course from behind!!
-						for number_2 = 1, table.getn(course2_waypoints) do
-							local course2_wp = course2_waypoints[number_2]
-							if course2_wp.crossing == true and course2_wp.merged == nil and wp_found == false then
-								local distance_between_waypoints = courseplay:distance(course1_wp.cx, course1_wp.cz, course2_wp.cx, course2_wp.cz)
-								if distance_between_waypoints < 50 and distance_between_waypoints ~= 0 then
-									if distance_between_waypoints < old_distance then
-										old_distance = distance_between_waypoints
-										lastWP = number
-										course1_waypoints[lastWP].merged = true
-										new_wp = number_2
-										wp_found = true
-									end
-								end
-							end
-						end
-					end
-				end
-			end -- comment by horoman: this loop looks strange to me. All the distance comparing, but if once wp_found is true, the loops will just go through all and do no comparing no more...
-
-			if wp_found == false then
-				courseplay:debug(nameNum(self) .. ": no waypoint found", 8)
+			self.Waypoints, self.startlastload = courseplay.courses.merge(self.Waypoints, course.Waypoints, add_course_at_end);
+			if self.startlastload > 0 then
+				self.numCourses = self.numCourses + 1;
 			end
-
-			self.Waypoints = {}
-
-			for i = 1, lastWP do
-				table.insert(self.Waypoints, course1_waypoints[i])
-			end
-			self.startlastload = lastWP
-
-			local lastNewWP = table.getn(course.waypoints)
-			for i = new_wp, lastNewWP do
-				table.insert(self.Waypoints, course.waypoints[i])
-			end
-			self.Waypoints[lastWP + 1].merged = true
-			self.numCourses = self.numCourses + 1;
 			self.current_course_name = string.format("%d %s", self.numCourses, courseplay.locales.CPCourseAdded)
 		end
+		
 		if table.getn(self.Waypoints) == 4 then
 			self.createCourse = true
 		else
@@ -174,6 +130,76 @@ function courseplay:load_course(self, id, use_real_id, add_course_at_end)
 		
 		courseplay:validateCanSwitchMode(self);
 	end
+end
+
+
+function courseplay.courses.merge(waypoints1, waypoints2, add_course_at_end)
+-- success: returns the merged waypoints and the position of the last waypoint of the first course (position > 0).
+-- partial success: returns waypoints found and an error code instead of last waypoint number. error code < 0. 
+-- no success: returns nil 0
+	--check if course1 or course2 is empty!
+	if not waypoints1 then
+		if not waypoints2 then
+			return nil, 0;
+		else
+			return waypoints2, -2;
+		end
+	else
+		if not waypoints2 then
+			return waypoints1, -1;
+		end
+	end
+	
+	local course = {};
+	
+	local course1_waypoints = course1.Waypoints;
+	local course2_waypoints = course2.waypoints;
+
+	local old_distance = 51
+	local lastWP = #waypoints1;
+	local wp_found = false
+	local new_wp = 1
+	
+	-- go through all waypoints and try to find a waypoint of the next course near a crossing
+	if add_course_at_end ~= true then
+		for number, course1_wp in ipairs(waypoints1) do
+			--courseplay:debug(number, 3)
+			if course1_wp.crossing == true and course1_wp.merged == nil and wp_found == false and number > self.startlastload then
+				-- go through the second course from behind!!
+				for number_2 = 1, #waypoints2 do
+					local course2_wp = waypoints2[number_2]
+					if course2_wp.crossing == true and course2_wp.merged == nil and wp_found == false then
+						local distance_between_waypoints = courseplay:distance(course1_wp.cx, course1_wp.cz, course2_wp.cx, course2_wp.cz)
+						if distance_between_waypoints < 50 and distance_between_waypoints ~= 0 then
+							if distance_between_waypoints < old_distance then
+								old_distance = distance_between_waypoints
+								lastWP = number
+								waypoints1[lastWP].merged = true
+								new_wp = number_2
+								wp_found = true
+							end
+						end
+					end
+				end
+			end
+		end -- comment by horoman: this loop looks strange to me. All the distance comparing, but if once wp_found is true, the loops will just go through all and do no comparing no more...
+		
+		if wp_found == false then
+			courseplay:debug(nameNum(self) .. ": no waypoint found", 8)
+		end
+	end
+
+	for i = 1, lastWP do
+		table.insert(course, waypoints1[i])
+	end
+
+	local lastNewWP = #waypoints2;
+	for i = new_wp, lastNewWP do
+		table.insert(course, waypoints2[i])
+	end
+	course[lastWP + 1].merged = true
+	
+	return course, lastWP;
 end
 
 function courseplay.courses.sort(courses_to_sort, folders_to_sort, parent_id, level, make_copies)
@@ -436,6 +462,37 @@ function courseplay.courses.save_course(course_id, File, append)
 	end
 end
 
+
+function courseplay.courses.save_courses(File, append)
+--	function to save all courses by once
+--	append (bool): whether to append to the file (true) or check if the id exists (false)
+	local deleteFile = false
+	if append == nil then
+		append = false
+	end
+	
+	if File == nil then
+		File = courseplay.courses.openOrCreateXML()
+		deleteFile = true
+	end
+	
+	if append then
+		append = courseplay.utils.findFreeXMLNode(File,'XML.courses.course')
+	end
+	
+	for k,_ in pairs(g_currentMission.cp_courses) do
+		courseplay.courses.save_course(k, File, append) -- append is either false or an integer here
+		if append ~= false then
+			append = append + 1
+		end
+	end
+	
+	if deleteFile then
+		delete(File)
+	end
+end
+
+
 function courseplay.courses.save_folder(folder_id, File, append)
 -- saves a folder to the courseplay xml file
 --
@@ -476,6 +533,7 @@ function courseplay.courses.save_folder(folder_id, File, append)
 	end
 end
 
+
 function courseplay.courses.save_folders(File, append)
 --	function to save all folders by once
 --	append (bool): whether to append to the file (true) or check if the id exists (false)
@@ -504,34 +562,323 @@ function courseplay.courses.save_folders(File, append)
 	end
 end
 
-function courseplay.courses.save_courses(File, append)
---	function to save all courses by once
---	append (bool): whether to append to the file (true) or check if the id exists (false)
-	local deleteFile = false
-	if append == nil then
-		append = false
-	end
+
+courseplay.courses.NodeClass = {};
+
+function courseplay.courses.NodeClass:new(id, name, x, y)
+	local newNode = {id=id, name=name, x=tonumber(x), y=tonumber(y)};
+	-- newNode._XML._types = {id='Int', name='String', x='String', y='String'};
+	-- use self as template:
+	setmetatable(newNode, self);
+	self.__index = self;
 	
+	return newNode;
+end
+
+function courseplay.courses.NodeClass:_XML()
+	local object = { _types = {id='Int', name='String', x='String', y='String'} };
+	object.x = tostring(courseplay.round(nil, self.x, 4));
+	object.y = tostring(courseplay.round(nil, self.y, 4));
+	object.name = self.name;
+	object.id = self.id;
+	return object;
+end
+
+function courseplay.courses.NodeClass:save(File, append)
+	-- handle input arguments
+	local deleteFile = false;
 	if File == nil then
-		File = courseplay.courses.openOrCreateXML()
-		deleteFile = true
+		File = courseplay.courses.openOrCreateXML();
+        deleteFile = true;
+	end
+	if append == nil then
+		append = false;
 	end
 	
-	if append then
-		append = courseplay.utils.findFreeXMLNode(File,'XML.courses.course')
+	-- init
+	local node = self._XML();
+	local i = 0;
+	
+	if append ~= false then
+		-- save and use next free ID instead?
+		if append == true then
+			i = courseplay.utils.findFreeXMLNode(File,'XML.nodes.node');
+		else
+			i = append;
+		end
+	end
+		i = courseplay.utils.findXMLNodeByAttr(File, 'XML.nodes.node', 'id', node.id, 'Int')
+		if i < 0 then i = -i end
 	end
 	
-	for k,_ in pairs(g_currentMission.cp_courses) do
-		courseplay.courses.save_course(k, File, append) -- append is either false or an integer here
-		if append ~= false then
-			append = append + 1
+	courseplay.utils.setMultipleXML(File, string.format('XML.nodes.node(%d)', i), node, node._types);
+end
+
+function courseplay.courses.NodeClass:loadFromXML(cpFile, nodeNR)
+-- returns node if success, 0 if the node does not exist, nil if the node contains a critical error (e.g. no id or no position)
+	local currentNode, id, NodeName, x, y, node;
+	local success = true;
+	
+	-- current node
+	currentNode = string.format("XML.nodes.node(%d)", nodeNR);
+	if not hasXMLProperty(cpFile, currentNode) then
+		success = false;
+		node = 0;
+	end;
+	
+	-- node id
+	id = getXMLInt(cpFile, currentNode .. "#id");
+	if id == nil then
+		success = false;
+		node = nil;
+	end
+	
+	-- node name
+	NodeName = getXMLString(cpFile, currentNode .. "#name");
+	if NodeName == nil then
+		NodeName = string.format('NO_NAME%d', nodeNR);
+	end
+					
+	-- node x
+	x = tonumber(getXMLString(cpFile, currentNode .. "#x"));
+	if x == nil then
+		success = false;
+		node = nil;
+	end
+	
+	-- node y
+	y = tonumber(getXMLString(cpFile, currentNode .. "#y"));
+	if y == nil then
+		success = false;
+		node = nil;
+	end
+	
+	-- create node
+	if success then
+		node = self:new(id, NodeName, x, y);
+	end
+	
+	return node;
+end
+
+
+courseplay.courses.NodeConnectionClass = {};
+
+function courseplay.courses.NodeConnectionClass:new(id1, id2, courseID, d)
+	local newConn = {id1=id1, id2=id2, courseID=courseID, d=d};
+	-- use self as template:
+	setmetatable(newConn, self);
+	self.__index = self;
+	
+	return newConn;
+end
+
+function courseplay.courses.NodeConnectionClass:getCourse()
+	return g_currentMission.cp_courses[self.courseID]
+end
+
+function courseplay.courses.NodeConnectionClass:getName()
+	return g_currentMission.cp_courses[self.courseID].name
+end
+
+function courseplay.courses.NodeConnectionClass:getWaypoints()
+	return g_currentMission.cp_courses[self.courseID].Waypoints
+end
+
+function courseplay.courses.NodeConnectionClass:calcD()
+	if self.course then
+		local length = 0;
+		local dx,dy;
+		local waypoints = self.getWaypoints();
+		local x_old = waypoints[1].x;
+		local y_old = waypoints[1].y;
+		
+		for i = 2,#waypoints do
+			dx = waypoints[i].x - x_old;
+			dy = waypoints[i].y - y_old;
+			length = length + math.sqrt(dx*dx + dy*dy);
+			x_old = waypoints[i].x;
+			y_old = waypoints[i].y;
+		end
+		
+		self.d = length;
+	end
+end
+
+function courseplay.courses.NodeConnectionClass:loadFromXML(File, connNR)
+-- returns connection if success, 0 if the connection does not exist, nil if the connection contains a critical error (e.g. no ids)
+	local currentConn, id1, id2, CourseID, d, conn;
+	local success = true;
+	
+	-- current connection
+	currentConn = string.format("XML.connections.connection(%d)", nodeNR);
+	if not hasXMLProperty(File, currentConn) then
+		success = false;
+		node = 0;
+	end;
+	
+	-- connection id1
+	id1 = getXMLInt(File, currentConn .. "#id1");
+	if id1 == nil then
+		success = false;
+		node = nil;
+	end
+	
+	-- connection id2
+	id2 = getXMLInt(File, currentConn .. "#id2");
+	if id2 == nil then
+		success = false;
+		node = nil;
+	end
+	
+	-- connection id1
+	CourseID = getXMLInt(File, currentConn .. "#CourseID");
+	if CourseID == nil then
+		success = false;
+		node = nil;
+	end
+					
+	-- connection path length d
+	d = tonumber(getXMLString(cpFile, currentConn .. "#d"));
+	
+	-- create node
+	if success then
+		conn = self:new(id1, id2, CourseID, d);
+		if not d then
+			conn:calcD();
 		end
 	end
 	
-	if deleteFile then
-		delete(File)
+	return conn;
+end
+
+function courseplay.courses.NodeConnectionClass:_XML()
+	local object = { _types = {id1='Int', id2='Int', CourseID='Int', d='String'} };
+	object.d = tostring(courseplay.round(nil, self.d, 4));
+	object.CourseID = self.CourseID;
+	object.id2 = self.id2;
+	object.id1 = self.id1;
+	return object;
+end
+
+function courseplay.courses.NodeConnectionClass:save(File, append)
+	-- handle input arguments
+	local deleteFile = false;
+	if File == nil then
+		File = courseplay.courses.openOrCreateXML();
+        deleteFile = true;
+	end
+	if append == nil then
+		append = false;
+	end
+	
+	-- init
+	local conn = self._XML();
+	local i = 0;
+	
+	if append ~= false then
+		-- save and use next free ID instead?
+		if append == true then
+			i = courseplay.utils.findFreeXMLNode(File,'XML.connections.connection');
+		else
+			i = append;
+		end
+	end
+		print('CP ERROR: tried to overwrite a connection: this feature is not implemented yet.')
+		return; -- not used at the moment and:
+		--todo: does not work as a single id is not unique here
+		i = courseplay.utils.findXMLNodeByAttr(File, 'XML.connections.connection', 'id1', conn.id1, 'Int')
+		if i < 0 then i = -i end
+	end
+	
+	courseplay.utils.setMultipleXML(File, string.format('XML.connections.connection(%d)', i), conn, conn._types);
+end
+
+function courseplay.courses.NodeConnectionClass.__lt(A,B)
+	local typeA, typeB = type(A), type(B);
+	if typeA == 'table' then
+		if typeB == 'table' then
+			return A.d < B.d;
+		elseif typeB == 'number' then
+			return A.d < B;
+		end
+	elseif typeA == 'number' then
+		if typeB == 'table' then
+			return A < B.d;
+		elseif typeB == 'number' then
+			return A < B;
+		end
 	end
 end
+
+function courseplay.courses.NodeConnectionClass.__le(A,B)
+	local typeA, typeB = type(A), type(B);
+	if typeA == 'table' then
+		if typeB == 'table' then
+			return A.d <= B.d;
+		elseif typeB == 'number' then
+			return A.d <= B;
+		end
+	elseif typeA == 'number' then
+		if typeB == 'table' then
+			return A <= B.d;
+		elseif typeB == 'number' then
+			return A <= B;
+		end
+	end
+end
+
+function courseplay.courses.NodeConnectionClass.__add(A,B)
+	local typeA, typeB = type(A), type(B);
+	if typeA == 'table' then
+		if typeB == 'table' then
+			return A.d + B.d;
+		elseif typeB == 'number' then
+			return A.d + B;
+		end
+	elseif typeA == 'number' then
+		if typeB == 'table' then
+			return A + B.d;
+		elseif typeB == 'number' then
+			return A + B;
+		end
+	end
+end
+
+function courseplay.courses.NodeConnectionClass.__sub(A,B)
+	local typeA, typeB = type(A), type(B);
+	if typeA == 'table' then
+		if typeB == 'table' then
+			return A.d - B.d;
+		elseif typeB == 'number' then
+			return A.d - B;
+		end
+	elseif typeA == 'number' then
+		if typeB == 'table' then
+			return A - B.d;
+		elseif typeB == 'number' then
+			return A - B;
+		end
+	end
+end
+
+function courseplay.courses.NodeConnectionClass.__eq(A,B)
+	local typeA, typeB = type(A), type(B);
+	if typeA == 'table' then
+		if typeB == 'table' then
+			return A.d == B.d;
+		elseif typeB == 'number' then
+			return A.d == B;
+		end
+	elseif typeA == 'number' then
+		if typeB == 'table' then
+			return A == B.d;
+		elseif typeB == 'number' then
+			return A == B;
+		end
+	end
+end
+
 
 function courseplay.courses.delete_save_all(self)
 -- saves courses to xml-file
@@ -541,6 +888,7 @@ function courseplay.courses.delete_save_all(self)
 		if savegame ~= nil and g_currentMission.cp_courses ~= nil then
 			local file = io.open(savegame.savegameDirectory .. "/courseplay.xml", "w");
 			if file ~= nil then
+				local node_xml, conn_xml;
 				file:write('<?xml version="1.0" encoding="utf-8" standalone="no" ?>\n<XML>\n\t<courseplayHud posX="' .. courseplay:round(courseplay.hud.infoBasePosX, 3) .. '" posY="' .. courseplay:round(courseplay.hud.infoBasePosY, 3) .. '" />\n');
 				
 				file:write('\t<folders>\n')
@@ -548,6 +896,20 @@ function courseplay.courses.delete_save_all(self)
 					file:write('\t\t<folder name="' .. folder.name .. '" id="' .. folder.id .. '" parent="' .. folder.parent ..'" />\n');
 				end
 				file:write('\t</folders>\n')
+				
+				file:write('\t<nodes>\n')
+				for i,node in pairs(g_currentMission.cp_nodes) do
+					node_xml = node:_XML();
+					file:write('\t\t<node id="' .. node_xml.id .. '" name="' .. node_xml.name .. '" x="' .. node_xml.x .. '" y="' .. node_xml.y ..'" />\n');
+				end
+				file:write('\t</nodes>\n')
+				
+				file:write('\t<connections>\n')
+				for i,conn in pairs(g_currentMission.cp_nodes.conn) do
+					conn_xml = conn:_XML();
+					file:write('\t\t<connection id1="' .. conn_xml.id1 .. '" id2="' .. conn_xml.id2 .. '" CourseID="' .. conn_xml.CourseID .. '" d="' .. conn_xml.d ..'" />\n');
+				end
+				file:write('\t</connections>\n')
 				
 				file:write('\t<courses>\n')
 				for i,course in pairs(g_currentMission.cp_courses) do
@@ -1004,3 +1366,16 @@ function courseplay.courses.reload(vehicle)
 		vehicle.cp.reloadCourseItems = false
 	end -- end vehicle ~= nil
 end
+
+function courseplay.courses.findStreetCourse(startNodeID, endNodeID)
+	local path, course;
+	
+	path = courseplay.algo.a_star(startNodeID, endNodeID, g_currentMission.cp_nodes,  g_currentMission.cp_nodes.conn);
+	
+	for i, courseID in ipairs(path) do
+		course = courseplay.courses.merge(course, g_currentMission.cp_courses[courseID].Waypoints, true);
+	end
+	
+	return course;
+end
+

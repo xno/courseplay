@@ -309,7 +309,6 @@ function courseplay.algo.a_star(start, destination, nodes, costs)
 	
 	local openBin = SortedArrayClass:new()	
 	local _nodes = {};
-	local dx, dy, k;
 	local path = {};
 	
 	-- initialize
@@ -338,7 +337,10 @@ function courseplay.algo.a_star(start, destination, nodes, costs)
 						_nodes[i].calcH(_nodes[destination]);
 					end
 					
-					if current.d + a < _nodes[i].d and current.d + a + _nodes[i].h < _nodes[destination].d then				
+					if current.d + a < _nodes[i].d and current.d + a + _nodes[i].h < _nodes[destination].d then
+						-- update total costs (distance)
+						-- update parent
+						-- put into open bin if not already there and not destination		
 						ASTAR.updateNode(openBin, _nodes, i, current.d + a, current.id, destination);						
 					end -- compare with d_i and d_destination
 									
@@ -350,7 +352,7 @@ function courseplay.algo.a_star(start, destination, nodes, costs)
 	
 	-- get path
 	if _nodes[destination].d < math.huge then -- totalCosts of destination have to be less than infinity otherwise no path was found.
-		k = destination;
+		local k = destination;
 		while _nodes[k].parent > 0 do
 			table.insert(path, 1, _nodes[k].parent);
 			k = _nodes[k].parent;
@@ -361,7 +363,7 @@ function courseplay.algo.a_star(start, destination, nodes, costs)
 	
 end
 
-local ASTAR;
+local ASTAR = {};
 function ASTAR.updateNode(openBin, _nodes, node_id, newD, parent, destination)
 	-- update total costs (distance)
 	-- update parent
