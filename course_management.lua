@@ -36,6 +36,15 @@ function courseplay:showSaveCourseForm(self, saveWhat)
 			courseplay.button.setOverlay(button, 1);
 			courseplay.settings.setReloadCourseItems(self);
 		end;
+	elseif saveWhat == 'node' then
+		if #(self.Waypoints) > 0 and #self.Waypoints < 3 then
+			courseplay.vehicleToSaveCourseIn = self;
+			if self.cp.imWriting then
+				self.cp.saveWhat = 'node'
+				g_gui:showGui("inputCourseNameDialogue");
+				self.cp.imWriting = false
+			end
+		end;
 	end
 end;
 
@@ -682,7 +691,7 @@ function courseplay.courses.NodeConnectionClass:getName()
 end
 
 function courseplay.courses.NodeConnectionClass:getWaypoints()
-	return g_currentMission.cp_courses[self.courseID].Waypoints
+	return g_currentMission.cp_courses[self.courseID].waypoints
 end
 
 function courseplay.courses.NodeConnectionClass:calcD()
@@ -905,9 +914,11 @@ function courseplay.courses.delete_save_all(self)
 				file:write('\t</nodes>\n')
 				
 				file:write('\t<connections>\n')
-				for i,conn in pairs(g_currentMission.cp_nodes.conn) do
-					conn_xml = conn:_XML();
-					file:write('\t\t<connection id1="' .. conn_xml.id1 .. '" id2="' .. conn_xml.id2 .. '" CourseID="' .. conn_xml.CourseID .. '" d="' .. conn_xml.d ..'" />\n');
+				for i,node in pairs(g_currentMission.cp_nodes.conn) do
+					for j,conn in pairs(node) do
+						conn_xml = conn:_XML();
+						file:write('\t\t<connection id1="' .. conn_xml.id1 .. '" id2="' .. conn_xml.id2 .. '" CourseID="' .. conn_xml.CourseID .. '" d="' .. conn_xml.d ..'" />\n');
+					end
 				end
 				file:write('\t</connections>\n')
 				
@@ -1004,6 +1015,17 @@ function courseplay.courses.getMaxFolderID()
 	local maxID = nil
 	if g_currentMission.cp_folders ~= nil then
 		maxID = courseplay.utils.table.getMax(g_currentMission.cp_folders, 'id')
+		if  maxID == false then
+			maxID = 0
+		end
+	end
+	return maxID
+end
+
+function courseplay.courses.getMaxNodeID()
+	local maxID = nil
+	if g_currentMission.cp_nodes ~= nil then
+		maxID = courseplay.utils.table.getMax(g_currentMission.cp_nodes, 'id')
 		if  maxID == false then
 			maxID = 0
 		end
@@ -1373,7 +1395,7 @@ function courseplay.courses.findStreetCourse(startNodeID, endNodeID)
 	path = courseplay.algo.a_star(startNodeID, endNodeID, g_currentMission.cp_nodes,  g_currentMission.cp_nodes.conn);
 	
 	for i, courseID in ipairs(path) do
-		course = courseplay.courses.merge(course, g_currentMission.cp_courses[courseID].Waypoints, true);
+		course = courseplay.courses.merge(course, g_currentMission.cp_courses[courseID].waypoints, true);
 	end
 	
 	return course;

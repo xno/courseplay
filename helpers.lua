@@ -420,13 +420,7 @@ end;
 function courseplay.utils.table.getMax(tab, field)
 	local max = nil
 	if tab ~= nil and field ~= nil then
-		max = false
-		for k, v in pairs(tab) do
-			if v[field] ~= nil then
-				max = v[field]
-				break
-			end
-		end
+		max = -math.huge;
 		for k, v in pairs(tab) do
 			if v[field] ~= nil then
 				if v[field] > max then

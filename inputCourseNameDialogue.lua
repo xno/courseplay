@@ -190,7 +190,7 @@ function inputCourseNameDialogue:onSaveClick()
 			--print("self.textInputElement.text= "..tostring(self.textInputElement).."  courseplay.vehicleToSaveCourseIn.current_course_name= "..tostring(courseplay.vehicleToSaveCourseIn.current_course_name));
 		end
 
-		local maxID = courseplay.courses.getMaxCourseID() -- horoman: made maxID local, should not make a difference as it is used nowhere (at least Eclipse file search doesn't find it in any of the courseplay files)
+		local maxID = courseplay.courses.getMaxCourseID()
 		if maxID == nil then
 			g_currentMission.cp_courses = {};
 			maxID = 0
@@ -214,7 +214,7 @@ function inputCourseNameDialogue:onSaveClick()
 			maxID = 0
 		end
 		local folderID = maxID+1
-		folder = { id = folderID, uid = 'f'..folderID, type = 'folder', name = self.textInputElement.text, parent = 0 }
+		local folder = { id = folderID, uid = 'f'..folderID, type = 'folder', name = self.textInputElement.text, parent = 0 }
 
 		g_currentMission.cp_folders[folderID] = folder
 		g_currentMission.cp_sorted = courseplay.courses.sort(g_currentMission.cp_courses, g_currentMission.cp_folders, 0, 0)
@@ -229,6 +229,17 @@ function inputCourseNameDialogue:onSaveClick()
 		local button = vehicle.cp.buttons["2"][vehicle.cp.hud.filterButtonIndex];
 		courseplay.button.setOverlay(button, 2);
 		courseplay.settings.setReloadCourseItems(vehicle);
+		
+	elseif vehicle.cp.saveWhat == 'node' then
+		local maxID = courseplay.courses.getMaxNodeID();
+		if maxID == nil then
+			g_currentMission.cp_nodes = {conn={}};
+			maxID = 0;
+		end
+		local node = courseplay.courses.NodeClass:new(maxID+1, self.textInputElement.text, vehicle.Waypoints[1].cx, vehicle.Waypoints[1].cz)
+		node:save(nil, true);
+		courseplay.reset_course(nil,vehicle);
+		
 	end
 
 	if self.textInputElement ~= nil then
