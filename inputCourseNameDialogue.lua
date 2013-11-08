@@ -16,7 +16,7 @@ inputCourseNameDialogue.stateData = {
 	focused =  { stateNum = 3, fileNameVar = "imageFocusedFilename" };
 	disabled = { stateNum = 4, fileNameVar = "imageDisabledFilename" };
 };
-inputCourseNameDialogue.types = { "course", "folder", "filter" };
+inputCourseNameDialogue.types = { "course", "folder", "filter", "node" };
 
 function inputCourseNameDialogue:new()
 	local instance = {};
@@ -152,9 +152,11 @@ function inputCourseNameDialogue:onOpen(element)
 		local courseTitle = string.sub(cpTitleParts[1], 5);
 		local folderTitle = string.sub(cpTitleParts[2], 5);
 		local filterTitle = string.sub(cpTitleParts[3], 5);
+		local nodeTitle   = string.sub(cpTitleParts[4], 5);
 		self.titleTextElement.courseText =  courseplay.locales[courseTitle] or "Course name:";
 		self.titleTextElement.folderText =  courseplay.locales[folderTitle] or "Folder name:";
 		self.titleTextElement.filterText =  courseplay.locales[filterTitle] or "Filter courses:";
+		self.titleTextElement.nodeText   =  courseplay.locales[nodeTitle]   or "Node name:";
 	end;
 	self.titleTextElement.text = self.titleTextElement[saveWhat .. "Text"];
 
@@ -237,6 +239,8 @@ function inputCourseNameDialogue:onSaveClick()
 			maxID = 0;
 		end
 		local node = courseplay.courses.NodeClass:new(maxID+1, self.textInputElement.text, vehicle.Waypoints[1].cx, vehicle.Waypoints[1].cz)
+		g_currentMission.cp_nodes[node.id] = node;
+		g_currentMission.cp_sortedNodes = courseplay.courses.sortNodes(g_currentMission.cp_nodes);
 		node:save(nil, true);
 		courseplay.reset_course(nil,vehicle);
 		

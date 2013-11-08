@@ -8,6 +8,7 @@ function courseplay_manager:loadMap(name)
 		g_currentMission.cp_folders = {};
 		g_currentMission.cp_sorted = {item={}, info={}};
 		g_currentMission.cp_nodes = {conn={}};
+		g_currentMission.cp_sortedNodes = {};
 
 		if g_server ~= nil and next(g_currentMission.cp_courses) == nil then
 			courseplay_manager:load_courses()
@@ -194,8 +195,7 @@ function courseplay_manager:load_courses()
 				end
 				
 				tempCourse = nil;
-				i = i + 1;
-				
+				i = i + 1;				
 			until finish_all == true;
 			
 			-- load folders
@@ -249,7 +249,7 @@ function courseplay_manager:load_courses()
 			local k = 0;
 			local node;
 			finish_all = false;
-			while not finish_all do		
+			while not finish_all do	
 				node = courseplay.courses.NodeClass:loadFromXML(cpFile, k);
 				if node == 0 then
 					finish_all = true;
@@ -309,6 +309,7 @@ function courseplay_manager:load_courses()
 			end
 			
 			g_currentMission.cp_sorted = courseplay.courses.sort(courses_by_id, folders_by_id, 0, 0)
+			g_currentMission.cp_sortedNodes = courseplay.courses.sortNodes(nodes);
 						
 			delete(cpFile);
 		else

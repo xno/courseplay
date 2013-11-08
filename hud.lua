@@ -30,7 +30,7 @@ function courseplay:setHudContent(self)
 	end
 	
 	--CURRENT PAGE
-	if self.cp.hud.currentPage ~= 2 or (self.cp.hud.reloadPage[ self.cp.hud.currentPage ]) then
+	if (self.cp.hud.currentPage ~= 2 and self.cp.hud.currentPage ~= 10) or (self.cp.hud.reloadPage[ self.cp.hud.currentPage ]) then
 		for line=1,courseplay.hud.numLines do
 			for column=1,2 do
 				self.cp.hud.content.pages[self.cp.hud.currentPage][line][column].text = nil;
@@ -457,7 +457,19 @@ function courseplay:setHudContent(self)
 		else
 			self.cp.hud.content.pages[9][5][2].text = courseplay:get_locale(self, "CPdeactivated");
 		end;
-	end;
+	
+	-- page 10 road-system
+	elseif self.cp.hud.currentPage == 10 then
+		-- this function is called every time draw is called
+		-- on page 10 there is nothing to update that frequent, like a distance to some target
+		-- (else I'd place it right here)
+		
+		-- it is updated when its content changes:
+		if self.cp.hud.reloadPage[10] then
+			courseplay.hud.loadPage(self, 10)
+		end
+	end
+	
 end; --END setHudContent()
 
 
@@ -539,8 +551,8 @@ function courseplay:setMinHudPage(self, workTool)
 end;
 
 function courseplay.hud.loadPage(vehicle, page)
-	if page == 2 then
 	
+	if page == 2 then	
 		-- update courses?
 		if vehicle.cp.reloadCourseItems then
 			courseplay.courses.reload(vehicle)
@@ -571,7 +583,52 @@ function courseplay.hud.loadPage(vehicle, page)
 		-- enable and disable buttons:
 		courseplay.buttonsActiveEnabled(nil, vehicle, 'page2')
 		
-	end -- if page == 2
+	elseif page == 10 then
+		if vehicle.cp.hud.currentSubPage == 1 then
+		-- Overview and calculation
+			vehicle.cp.hud.content.pages[10][1][1].text = 'Start node: ';
+			vehicle.cp.hud.content.pages[10][1][2].text = vehicle.cp.hud.startNode.name;
+			
+			vehicle.cp.hud.content.pages[10][2][1].text = 'End node: ';
+			vehicle.cp.hud.content.pages[10][2][2].text = vehicle.cp.hud.endNode.name;
+			
+			vehicle.cp.hud.content.pages[10][3][1].text = 'Connection: ';
+			vehicle.cp.hud.content.pages[10][3][2].text = vehicle.cp.hud.connection.name;
+			
+			vehicle.cp.hud.content.pages[10][4][1].text = 'Path: ';
+			if vehicle.cp.steetPath and vehicle.cp.streetPath.length then
+				vehicle.cp.hud.content.pages[10][4][2].text = tostring(vehicle.cp.streetPath.length) .. 'm'
+			else
+				vehicle.cp.hud.content.pages[10][4][2].text = 'No path found.';
+			end
+			
+			vehicle.cp.hud.nodeListPrev = false;
+			vehicle.cp.hud.nodeListNext = false;
+			
+		elseif vehicle.cp.hud.currentSubPage == 2 then
+		-- choose nodes
+			local max;
+			if vehicle.cp.hud.firstNodeInList == 1 then
+				vehicle.cp.hud.nodeListPrev = false;
+			else
+				vehicle.cp.hud.nodeListPrev = true;
+			end
+			if vehicle.cp.hud.firstNodeInList + courseplay.hud.numLines -1 > #g_currentMission.cp_sortedNodes then
+				max = #g_currentMission.cp_sortedNodes - vehicle.cp.hud.firstNodeInList + 1;
+				vehicle.cp.hud.nodeListNext = false;
+			else
+				max = courseplay.hud.numLines;
+				vehicle.cp.hud.nodeListNext = true;
+			end
+			for line = 1, max do
+				vehicle.cp.hud.content.pages[10][line][1].text = g_currentMission.cp_sortedNodes[vehicle.cp.hud.firstNodeInList + line -1].name;
+			end
+		
+		elseif vehicle.cp.hud.currentSubPage == 3 then
+		-- choose connection
+		
+		end -- if SubPage == y
+	end -- if page == x
 	
 	vehicle.cp.hud.reloadPage[page] = false
 end;

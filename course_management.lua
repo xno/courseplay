@@ -5,14 +5,22 @@ function courseplay:showSaveCourseForm(self, saveWhat)
 	saveWhat = saveWhat or 'course'
 	
 	if saveWhat == 'course' then
-		if table.getn(self.Waypoints) > 0 then
+		if #self.Waypoints > 2 then
 			courseplay.vehicleToSaveCourseIn = self;
 			if self.cp.imWriting then
 				self.cp.saveWhat = 'course'
 				g_gui:showGui("inputCourseNameDialogue");
 				self.cp.imWriting = false
 			end
+		elseif #(self.Waypoints) > 0 then
+			courseplay.vehicleToSaveCourseIn = self;
+			if self.cp.imWriting then
+				self.cp.saveWhat = 'node'
+				g_gui:showGui("inputCourseNameDialogue");
+				self.cp.imWriting = false
+			end
 		end;
+		
 		
 	elseif saveWhat == 'folder' then
 		courseplay.vehicleToSaveCourseIn = self;
@@ -36,15 +44,7 @@ function courseplay:showSaveCourseForm(self, saveWhat)
 			courseplay.button.setOverlay(button, 1);
 			courseplay.settings.setReloadCourseItems(self);
 		end;
-	elseif saveWhat == 'node' then
-		if #(self.Waypoints) > 0 and #self.Waypoints < 3 then
-			courseplay.vehicleToSaveCourseIn = self;
-			if self.cp.imWriting then
-				self.cp.saveWhat = 'node'
-				g_gui:showGui("inputCourseNameDialogue");
-				self.cp.imWriting = false
-			end
-		end;
+		
 	end
 end;
 
@@ -344,6 +344,23 @@ function courseplay.courses.sort(courses_to_sort, folders_to_sort, parent_id, le
 	return sorted, last_child
 end
 
+function courseplay.courses.sortNodes(nodes)
+	local result = {};
+	-- exclude connections:
+	local conn = nodes.conn;
+	nodes.conn = nil;
+	-- make a sortable copy
+	for k,v in pairs(nodes) do
+			table.insert(result,v);
+	end
+	-- put connections back in to original
+	nodes.conn = conn;
+	-- sort the copy
+	table.sort(result, courseplay.utils.table.compare_name);
+	
+	return result;
+end
+
 function courseplay:reset_merged(self)
 	for _,course in pairs(g_currentMission.cp_courses) do
 		for num, wp in pairs(course.waypoints) do
@@ -576,7 +593,6 @@ courseplay.courses.NodeClass = {};
 
 function courseplay.courses.NodeClass:new(id, name, x, y)
 	local newNode = {id=id, name=name, x=tonumber(x), y=tonumber(y)};
-	-- newNode._XML._types = {id='Int', name='String', x='String', y='String'};
 	-- use self as template:
 	setmetatable(newNode, self);
 	self.__index = self;
@@ -605,7 +621,7 @@ function courseplay.courses.NodeClass:save(File, append)
 	end
 	
 	-- init
-	local node = self._XML();
+	local node = self:_XML();
 	local i = 0;
 	
 	if append ~= false then
@@ -615,12 +631,17 @@ function courseplay.courses.NodeClass:save(File, append)
 		else
 			i = append;
 		end
-	end
-		i = courseplay.utils.findXMLNodeByAttr(File, 'XML.nodes.node', 'id', node.id, 'Int')
+	else
+		i = courseplay.utils.findXMLNodeByAttr(File, 'XML.nodes.node', 'id', node.id, 'Int');
 		if i < 0 then i = -i end
 	end
-	
+
 	courseplay.utils.setMultipleXML(File, string.format('XML.nodes.node(%d)', i), node, node._types);
+	
+	if deleteFile then
+		saveXMLFile(File);
+		delete(File);
+	end
 end
 
 function courseplay.courses.NodeClass:loadFromXML(cpFile, nodeNR)
@@ -635,31 +656,37 @@ function courseplay.courses.NodeClass:loadFromXML(cpFile, nodeNR)
 		node = 0;
 	end;
 	
-	-- node id
-	id = getXMLInt(cpFile, currentNode .. "#id");
-	if id == nil then
-		success = false;
-		node = nil;
-	end
-	
-	-- node name
-	NodeName = getXMLString(cpFile, currentNode .. "#name");
-	if NodeName == nil then
-		NodeName = string.format('NO_NAME%d', nodeNR);
-	end
-					
-	-- node x
-	x = tonumber(getXMLString(cpFile, currentNode .. "#x"));
-	if x == nil then
-		success = false;
-		node = nil;
-	end
-	
-	-- node y
-	y = tonumber(getXMLString(cpFile, currentNode .. "#y"));
-	if y == nil then
-		success = false;
-		node = nil;
+	if success then
+		-- node id
+		id = getXMLInt(cpFile, currentNode .. "#id");
+		if id == nil then
+			success = false;
+			node = nil;
+		end
+		
+		-- node name
+		NodeName = getXMLString(cpFile, currentNode .. "#name");
+		if NodeName == nil then
+			NodeName = string.format('NO_NAME%d', nodeNR);
+		end
+						
+		-- node x
+		x = getXMLString(cpFile, currentNode .. "#x");
+		if x then
+			x = tonumber(x);
+		else
+			success = false;
+			node = nil;
+		end
+		
+		-- node y
+		y = getXMLString(cpFile, currentNode .. "#y");
+		if y then
+			y = tonumber(y);
+		else
+			success = false;
+			node = nil;
+		end
 	end
 	
 	-- create node
@@ -720,38 +747,43 @@ function courseplay.courses.NodeConnectionClass:loadFromXML(File, connNR)
 	local success = true;
 	
 	-- current connection
-	currentConn = string.format("XML.connections.connection(%d)", nodeNR);
+	currentConn = string.format("XML.connections.connection(%d)", connNR);
 	if not hasXMLProperty(File, currentConn) then
 		success = false;
-		node = 0;
+		conn = 0;
 	end;
 	
-	-- connection id1
-	id1 = getXMLInt(File, currentConn .. "#id1");
-	if id1 == nil then
-		success = false;
-		node = nil;
-	end
-	
-	-- connection id2
-	id2 = getXMLInt(File, currentConn .. "#id2");
-	if id2 == nil then
-		success = false;
-		node = nil;
-	end
-	
-	-- connection id1
-	CourseID = getXMLInt(File, currentConn .. "#CourseID");
-	if CourseID == nil then
-		success = false;
-		node = nil;
-	end
-					
-	-- connection path length d
-	d = tonumber(getXMLString(cpFile, currentConn .. "#d"));
-	
-	-- create node
 	if success then
+		-- connection id1
+		id1 = getXMLInt(File, currentConn .. "#id1");
+		if id1 == nil then
+			success = false;
+			conn = nil;
+		end
+		
+		-- connection id2
+		id2 = getXMLInt(File, currentConn .. "#id2");
+		if id2 == nil then
+			success = false;
+			conn = nil;
+		end
+		
+		-- connection id1
+		CourseID = getXMLInt(File, currentConn .. "#CourseID");
+		if CourseID == nil then
+			success = false;
+			conn = nil;
+		end
+	end
+	
+	if success then
+		-- connection path length d
+		d = getXMLString(cpFile, currentConn .. "#d");
+		
+		-- create node
+		if d then
+			d = tonumber(d);
+		end
 		conn = self:new(id1, id2, CourseID, d);
 		if not d then
 			conn:calcD();
@@ -782,7 +814,7 @@ function courseplay.courses.NodeConnectionClass:save(File, append)
 	end
 	
 	-- init
-	local conn = self._XML();
+	local conn = self:_XML();
 	local i = 0;
 	
 	if append ~= false then
@@ -792,15 +824,20 @@ function courseplay.courses.NodeConnectionClass:save(File, append)
 		else
 			i = append;
 		end
-	end
+	else
 		print('CP ERROR: tried to overwrite a connection: this feature is not implemented yet.')
 		return; -- not used at the moment and:
 		--todo: does not work as a single id is not unique here
-		i = courseplay.utils.findXMLNodeByAttr(File, 'XML.connections.connection', 'id1', conn.id1, 'Int')
-		if i < 0 then i = -i end
+--		i = courseplay.utils.findXMLNodeByAttr(File, 'XML.connections.connection', 'id1', conn.id1, 'Int')
+--		if i < 0 then i = -i end
 	end
 	
 	courseplay.utils.setMultipleXML(File, string.format('XML.connections.connection(%d)', i), conn, conn._types);
+	
+	if deleteFile then
+		saveXMLFile(File);
+		delete(File);
+	end
 end
 
 function courseplay.courses.NodeConnectionClass.__lt(A,B)
@@ -1389,15 +1426,29 @@ function courseplay.courses.reload(vehicle)
 	end -- end vehicle ~= nil
 end
 
-function courseplay.courses.findStreetCourse(startNodeID, endNodeID)
-	local path, course;
+function courseplay.courses.resetStreetCourse(vehicle)
+	vehicle.cp.streetPath = {_path=nil,  length=nil};
+end
+
+function courseplay.courses.findStreetCourse(vehicle)
+	local path = vehicle.cp.streetPath;
+	local startNode, endNode = vehicle.cp.hud.startNode, vehicle.cp.hud.endNode;
 	
-	path = courseplay.algo.a_star(startNodeID, endNodeID, g_currentMission.cp_nodes,  g_currentMission.cp_nodes.conn);
+	--courseplay.courses.resetStreetCourse(vehicle);	
+	if startNode.id and endNode.id then
+		path._path, path.length = courseplay.courses.findStreetPath(startNode.id, endNode.id);
+	end	
+end
+
+function courseplay.courses.findStreetPath(startNodeID, endNodeID)
+	local path, costs, course;
+	
+	path, costs = courseplay.algo.a_star(startNodeID, endNodeID, g_currentMission.cp_nodes,  g_currentMission.cp_nodes.conn);
 	
 	for i, courseID in ipairs(path) do
 		course = courseplay.courses.merge(course, g_currentMission.cp_courses[courseID].waypoints, true);
 	end
 	
-	return course;
+	return course, costs;
 end
 

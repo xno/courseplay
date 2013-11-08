@@ -350,6 +350,17 @@ function courseplay:load(xmlFile)
 	self.cp.hud.courseListNext = false; -- will be updated after loading courses into the hud
 	self.cp.hud.reloadPage = {}
 	self.cp.hud.reloadPage[-1] = true -- reload all
+	
+	-- road system
+	self.cp.streetPath = {};
+	self.cp.hud.currentSubPage = 1;
+	self.cp.hud.startNode = {};
+	self.cp.hud.endNode = {};
+	self.cp.hud.connection = {};
+	self.cp.hud.firstNodeInList = 1;
+	self.cp.hud.nodeListPrev = true;
+	self.cp.hud.nodeListNext = true;
+	self.cp.hud.nodeToChoose = "start"
 
 	-- clickable buttons
 	self.cp.buttons = {};
@@ -630,6 +641,13 @@ function courseplay:load(xmlFile)
 	--END Page 9
 
 
+	-- Page 10: Road Drive System
+	
+	-- subpage 1
+	for i=1, courseplay.hud.numLines do
+		courseplay:register_button(self, 10, "blank.dds", "rowButton", i, courseplay.hud.infoBasePosX, courseplay.hud.linesPosY[i], aiModeQuickSwitch.minX - courseplay.hud.infoBasePosX - 0.005, 0.015, i, nil, true);
+	end;
+	
 	self.fold_move_direction = 1;
 
 	courseplay:buttonsActiveEnabled(self, "all");

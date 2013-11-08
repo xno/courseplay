@@ -359,7 +359,7 @@ function courseplay.algo.a_star(start, destination, nodes, costs)
 		end
 	end
 	
-	return path
+	return path, _nodes[destination].d
 	
 end
 
@@ -381,7 +381,7 @@ function ASTAR.updateNode(openBin, _nodes, node_id, newD, parent, destination)
 			-- update total costs (distance)
 			_nodes[node_id].d = newD;
 			
-			openBin.insert(_nodes[node_id]):
+			openBin.insert(_nodes[node_id]);
 			_nodes[node_id].inBin = true;
 		else
 			-- the node to update is already in the openBin, find it there:

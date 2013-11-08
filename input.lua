@@ -258,7 +258,34 @@ function courseplay:executeFunction(self, func, value, overwrittenPage)
 					end;
 				end;
 			end; --END if not self.drive
-		end; --END is page 0 or 1
+			
+		elseif page == 10 then
+			if self.cp.hud.currentSubPage == 1 then
+				if line == 1 and #g_currentMission.cp_sortedNodes > 0 then
+					self.cp.hud.nodeToChoose = 'start';
+					self.cp.hud.currentSubPage = 2;
+					self.cp.hud.reloadPage[10] = true;
+				elseif line == 2 and #g_currentMission.cp_sortedNodes > 0 then
+					self.cp.hud.nodeToChoose = 'end';
+					self.cp.hud.currentSubPage = 2;
+					self.cp.hud.reloadPage[10] = true;
+				elseif line == 3 then
+					self.cp.hud.currentSubPage = 3;
+					self.cp.hud.reloadPage[10] = true;
+				elseif line == 4 then
+					courseplay.courses.findStreetCourse(self)
+				end
+			elseif self.cp.hud.currentSubPage == 2 then
+				if self.cp.hud.nodeToChoose == 'start' then
+					self.cp.hud.startNode = g_currentMission.cp_sortedNodes[self.cp.hud.firstNodeInList+line-1];
+				elseif self.cp.hud.nodeToChoose == 'end' then
+					self.cp.hud.endNode = g_currentMission.cp_sortedNodes[self.cp.hud.firstNodeInList+line-1];
+				end
+				self.cp.hud.currentSubPage = 1;
+				self.cp.hud.reloadPage[10] = true;
+			end
+		
+		end; --END is page 0 or 1 or 10
 	end; --END isRowFunction
 end;
 

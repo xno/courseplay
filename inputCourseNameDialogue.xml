@@ -14,7 +14,7 @@
 			textOffset="0 0" 
 			textColor="0.95 0.95 0.95 1" 
 			textBold="false" 
-			text="$CP_CPCourseName,$CP_CPFolderName,$CP_CPFilterFor" 
+			text="$CP_CPCourseName,$CP_CPFolderName,$CP_CPFilterFor,$CP_CPNodeName" 
 			textWrapWidth="0.8" 
 			alignment="left"
 		/>
@@ -103,10 +103,10 @@
 			text2Size="0" 
 
 			MOD_imageDir="img/inputCourseNameGUI/" 
-			MOD_imageFilename="$course:inputCourseName_saveButton_normal.png,$folder:$course,$filter:inputCourseName_searchButton_normal.png" 
-			MOD_imageFocusedFilename="$course:inputCourseName_saveButton_focused.png,$folder:$course,$filter:inputCourseName_searchButton_focused.png" 
-			MOD_imagePressedFilename="$course:inputCourseName_saveButton_pressed.png,$folder:$course,$filter:inputCourseName_searchButton_pressed.png" 
-			MOD_imageDisabledFilename="$course:inputCourseName_saveButton_disabled.png,$folder:$course,$filter:inputCourseName_searchButton_disabled.png" 
+			MOD_imageFilename="$course:inputCourseName_saveButton_normal.png,$folder:$course,$node:$course,$filter:inputCourseName_searchButton_normal.png" 
+			MOD_imageFocusedFilename="$course:inputCourseName_saveButton_focused.png,$folder:$course,$node:$course,$filter:inputCourseName_searchButton_focused.png" 
+			MOD_imagePressedFilename="$course:inputCourseName_saveButton_pressed.png,$folder:$course,$node:$course,$filter:inputCourseName_searchButton_pressed.png" 
+			MOD_imageDisabledFilename="$course:inputCourseName_saveButton_disabled.png,$folder:$course,$node:$course,$filter:inputCourseName_searchButton_disabled.png" 
 		/>
 	</GuiElement>
 </GUI>

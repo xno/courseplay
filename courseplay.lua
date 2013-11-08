@@ -132,7 +132,7 @@ function courseplay:setGlobalData()
 	ch.linesPosY = {};
 	ch.linesBottomPosY = {};
 	ch.linesButtonPosY = {};
-	ch.numPages = 9;
+	ch.numPages = 10;
 	ch.numLines = 6;
 	ch.lineHeight = 0.021;
 	ch.offset = 16/1920;  --0.006 (button width)
@@ -193,6 +193,7 @@ function courseplay:setGlobalData()
 		courseplay.hud.infoBasePosX + 0.122,
 		courseplay.hud.infoBasePosX + 0.182,
 		courseplay.hud.infoBasePosX + 0.230,
+		courseplay.hud.infoBasePosX + 0.122 -- Street Path System
 	};
 
 	courseplay.globalInfoText = {

@@ -125,6 +125,12 @@ function courseplay:renderButton(self, button)
 				button.canScrollUp =   true;
 				button.canScrollDown = self.toolWorkWidht > 0.1;
 			end;
+
+		elseif pg == 10 then
+			if fn == "shiftHudNodes" then
+				button.canScrollUp =   self.cp.hud.nodeListPrev == true;
+				button.canScrollDown = self.cp.hud.nodeListNext == true;
+			end;
 		end;
 
 	elseif button.overlay ~= nil then

@@ -428,6 +428,9 @@ function courseplay.utils.table.getMax(tab, field)
 				end
 			end
 		end
+		if max == -math.huge then --there was a table, but no field.
+			max = false;
+		end
 	end
 	return max
 end
@@ -562,12 +565,11 @@ function courseplay.utils.setMultipleXML(File, node, values, types)
 -- to write into the node directly set attribute = '_node_'
 -- types is a table of the form:
 -- {attribute1 = type1, attribute2 = type2, ...}; type1 is a string (e.g. 'Int')
--- attributes with no type in the types table will be skipped.	
+-- attributes with no type in the types table will be skipped.
 	for attribute, value in pairs(values) do
 		val_type = types[attribute]
 		
-		if val_type ~= nil then
-			
+		if val_type ~= nil then	
 			if attribute ~= '_node_' then
 				attribute = '#' .. attribute
 			else
