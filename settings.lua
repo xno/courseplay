@@ -786,6 +786,14 @@ function courseplay:shiftHudCourses(vehicle, change_by)
 	vehicle.cp.hud.reloadPage[2] = true
 end
 
+function courseplay.shiftHudNodes(self, vehicle, shiftBy)
+	if vehicle.cp.hud.currentSubPage == 2 and vehicle.cp.hud.firstNodeInList + shiftBy > 0 and vehicle.cp.hud.firstNodeInList + shiftBy <= #g_currentMission.cp_sortedNodes then
+		vehicle.cp.hud.firstNodeInList = vehicle.cp.hud.firstNodeInList + shiftBy;
+		vehicle.cp.hud.reloadPage[10] = true;
+	end
+end
+
+
 --Update all vehicles' course list arrow displays
 function courseplay.settings.validateCourseListArrows(vehicle)
 	local n_courses = #(vehicle.cp.sorted.item)

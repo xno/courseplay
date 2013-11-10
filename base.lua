@@ -643,10 +643,15 @@ function courseplay:load(xmlFile)
 
 	-- Page 10: Road Drive System
 	
-	-- subpage 1
+	-- subpage 1 and 2
 	for i=1, courseplay.hud.numLines do
 		courseplay:register_button(self, 10, "blank.dds", "rowButton", i, courseplay.hud.infoBasePosX, courseplay.hud.linesPosY[i], aiModeQuickSwitch.minX - courseplay.hud.infoBasePosX - 0.005, 0.015, i, nil, true);
 	end;
+	
+	-- subpage 2
+	courseplay:register_button(self, 10, "navigate_up.dds",   "shiftHudNodes", -courseplay.hud.numLines, listArrowX, courseplay.hud.linesPosY[1] - 0.003,                       w24px, h24px, nil, -courseplay.hud.numLines*2);
+	courseplay:register_button(self, 10, "navigate_down.dds", "shiftHudNodes",  courseplay.hud.numLines, listArrowX, courseplay.hud.linesPosY[courseplay.hud.numLines] - 0.003, w24px, h24px, nil,  courseplay.hud.numLines*2);
+	courseplay:register_button(self, 10, nil, "shiftHudNodes",  -1, courseListMouseWheelArea.x, courseListMouseWheelArea.y, courseListMouseWheelArea.width, courseListMouseWheelArea.height, nil, -courseplay.hud.numLines, nil, true);
 	
 	self.fold_move_direction = 1;
 

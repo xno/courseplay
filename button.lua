@@ -260,6 +260,20 @@ function courseplay:renderButton(self, button)
 			elseif fn == "generateCourse" then
 				button.show = self.cp.hasValidCourseGenerationData;
 			end;
+		
+		--Page 10
+		elseif pg == 10 then
+			if fn == "shiftHudNodes" then
+				if self.cp.hud.currentSubPage == 2 then
+					if prm < 0 then
+						button.show = self.cp.hud.nodeListPrev;
+					elseif prm > 0 then
+						button.show = self.cp.hud.nodeListNext;
+					end;
+				else
+					button.show = false;
+				end
+			end;
 		end;
 
 		
