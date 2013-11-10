@@ -1437,6 +1437,9 @@ function courseplay.courses.findStreetCourse(vehicle)
 	--courseplay.courses.resetStreetCourse(vehicle);	
 	if startNode.id and endNode.id then
 		path._path, path.length = courseplay.courses.findStreetPath(startNode.id, endNode.id);
+		if path.length = math.huge then
+			courseplay.courses.resetStreetCourse();
+		end
 	end	
 end
 

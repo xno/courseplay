@@ -293,176 +293,6 @@ Alternative Implementation
 by Horoman 2013
 --]]
 
-function courseplay.algo.a_star(start, destination, nodes, costs)
---[[ PRE
-	start: start node id
-	destination: destination node id
-	nodes: array with all nodes { id1={x=x1, y=y1}, id2={x=x2, y=y2} }
-	costs: non negative costs form one node to the other (costs[i][j] = cost from i to j; nil or negative numbers are treated as infinity)
---]]
---[[ POST
-	path: if success: path {1=start, 2=i, ... ,n=destination}, if no success: empty matrix
---]]
-
--- use binary heap instead of sorted array?
--- disadvantage: update position of node in bin needs to loop through whole bin in order to find the node to update (with a sorted array, it can be searched for the value by interpolation search...)
-	
-	local openBin = SortedArrayClass:new()	
-	local _nodes = {};
-	local path = {};
-	
-	-- initialize
-	_nodes[start] = NodeClass:new(start, nodes[start].x, nodes[start].y);
-	_nodes[start].d = 0;
-	_nodes[start].parent = 0;
-	_nodes[destination] = NodeClass:new(destination, nodes[destination].x, nodes[destination].y);
-	
-	openBin.insert(_nodes[start]);
-	_nodes[start].inBin = true;
-	
-	-- find path
-	while #openBin > 0 do
-		-- remove last element in bin -> order bin in a way the element, that should be removed is at the end...
-		current = openBin.pop();
-		current.inBin = false;
-		
-		-- check for children
-		if costs[current.id] ~= nil then -- else no children...
-			-- loop through all children
-			for i,a in pairs(costs[current.id]) do -- child with id i and cost a from current to i
-				if a >= 0 then -- otherways it is treated as infinity -> no path / not a child
-					
-					if not _nodes[i] then
-						_nodes[i] = NodeClass:new(i, nodes[i].x, nodes[i].y);
-						_nodes[i].calcH(_nodes[destination]);
-					end
-					
-					if current.d + a < _nodes[i].d and current.d + a + _nodes[i].h < _nodes[destination].d then
-						-- update total costs (distance)
-						-- update parent
-						-- put into open bin if not already there and not destination		
-						ASTAR.updateNode(openBin, _nodes, i, current.d + a, current.id, destination);						
-					end -- compare with d_i and d_destination
-									
-				end -- a >= 0
-			end -- for i,a in pairs(costs[current])
-		end -- if costs[current] ~= nil
-		
-	end -- while #openBin > 0	
-	
-	-- get path
-	if _nodes[destination].d < math.huge then -- totalCosts of destination have to be less than infinity otherwise no path was found.
-		local k = destination;
-		while _nodes[k].parent > 0 do
-			table.insert(path, 1, _nodes[k].parent);
-			k = _nodes[k].parent;
-		end
-	end
-	
-	return path, _nodes[destination].d
-	
-end
-
-local ASTAR = {};
-function ASTAR.updateNode(openBin, _nodes, node_id, newD, parent, destination)
-	-- update total costs (distance)
-	-- update parent
-	-- put into open bin if not already there and not destination
-	local pos;
-	
-	-- update parent
-	_nodes[node_id].parent = parent;
-												
-	-- put into open bin if not already there and not destination
-	if node_id ~= destination then
-		if (not _nodes[node_id].inBin) then
-			-- node is not destination and not in the bin -> put into bin
-			
-			-- update total costs (distance)
-			_nodes[node_id].d = newD;
-			
-			openBin.insert(_nodes[node_id]);
-			_nodes[node_id].inBin = true;
-		else
-			-- the node to update is already in the openBin, find it there:
-			pos = openBin.find(_nodes[node_id]);
-			
-			-- update total costs (distance)
-			_nodes[node_id].d = newD;
-			
-			if pos then
-				-- update only pos
-				openBin:updateFrom(pos);
-			end
-		end -- inBin
-	else
-		-- update total costs (distance) anyway
-		_nodes[node_id].d = newD;
-	end -- node ~= destination
-end
-
-
-function courseplay.algo.interpolation_search(bin, X)
-
-	local left = 1;
-	local right = #bin;
-	local mid = 0;
-	
-	if X < bin[right] then
-		mid = nil;
-	elseif X > bin[left] then
-		mid = nil;
-	else
-	
-		while left < right do
-		
-			if bin[right] - bin[left] == 0 then
-				if bin[left] == X then
-					mid = left;
-				else
-					mid = nil;
-				end
-				break;
-			end
-			
-			mid = left + ((X - bin[left]) * (right - left)) / (bin[right] - bin[left]);
-			mid = math.floor(mid + 0.5);
-		
-			if X < bin[mid] then
-				if left < mid + 1 then
-					left = mid + 1;
-				else
-					mid = nil;
-					break
-				end
-			elseif X > bin[mid] then
-				if right > mid - 1 then
-					right = mid - 1;
-				else
-					mid = nil;
-					break
-				end
-				
-			else
-				break;
-			end
-			i = i+1;
-		end --end while
-		
-		if right - left == 0 then
-			if bin[left] == X then
-				mid = left;
-			else
-				mid = nil;
-			end
-		end
-	
-	end -- else (X was to find in the array)
-	
-	return mid;
-
-end
-
 -- Class to handle sorted arrays
 local SortedArrayClass = {};
 
@@ -581,3 +411,176 @@ function NodeClass.__le(A,B) return (A.d <= B.d) end
 function NodeClass.__add(A,B) return (A.d + B.d) end
 function NodeClass.__sub(A,B) return (A.d - B.d) end
 function NodeClass.__eq(A,B) return (A.d == B.d) end
+
+
+local ASTAR = {};
+function ASTAR.updateNode(openBin, _nodes, node_id, newD, parent, destination)
+	-- update total costs (distance)
+	-- update parent
+	-- put into open bin if not already there and not destination
+	local pos;
+	
+	-- update parent
+	_nodes[node_id].parent = parent;
+												
+	-- put into open bin if not already there and not destination
+	if node_id ~= destination then
+		if (not _nodes[node_id].inBin) then
+			-- node is not destination and not in the bin -> put into bin
+			
+			-- update total costs (distance)
+			_nodes[node_id].d = newD;
+			
+			openBin.insert(_nodes[node_id]);
+			_nodes[node_id].inBin = true;
+		else
+			-- the node to update is already in the openBin, find it there:
+			pos = openBin.find(_nodes[node_id]);
+			
+			-- update total costs (distance)
+			_nodes[node_id].d = newD;
+			
+			if pos then
+				-- update only pos
+				openBin:updateFrom(pos);
+			end
+		end -- inBin
+	else
+		-- update total costs (distance) anyway
+		_nodes[node_id].d = newD;
+	end -- node ~= destination
+end
+
+
+function courseplay.algo.a_star(start, destination, nodes, costs)
+--[[ PRE
+	start: start node id
+	destination: destination node id
+	nodes: array with all nodes { id1={x=x1, y=y1}, id2={x=x2, y=y2} }
+	costs: non negative costs form one node to the other (costs[i][j] = cost from i to j; nil or negative numbers are treated as infinity)
+--]]
+--[[ POST
+	path: if success: path {1=start, 2=i, ... ,n=destination}, if no success: empty matrix
+--]]
+
+-- use binary heap instead of sorted array?
+-- disadvantage: update position of node in bin needs to loop through whole bin in order to find the node to update (with a sorted array, it can be searched for the value by interpolation search...)
+	
+	local openBin = SortedArrayClass:new()	
+	local _nodes = {};
+	local path = {};
+	
+	-- initialize
+	_nodes[start] = NodeClass:new(start, nodes[start].x, nodes[start].y);
+	_nodes[start].d = 0;
+	_nodes[start].parent = 0;
+	_nodes[destination] = NodeClass:new(destination, nodes[destination].x, nodes[destination].y);
+	
+	openBin.insert(_nodes[start]);
+	_nodes[start].inBin = true;
+	
+	-- find path
+	while #openBin > 0 do
+		-- remove last element in bin -> order bin in a way the element, that should be removed is at the end...
+		current = openBin.pop();
+		current.inBin = false;
+		
+		-- check for children
+		if costs[current.id] ~= nil then -- else no children...
+			-- loop through all children
+			for i,a in pairs(costs[current.id]) do -- child with id i and cost a from current to i
+				if a >= 0 then -- otherways it is treated as infinity -> no path / not a child
+					
+					if not _nodes[i] then
+						_nodes[i] = NodeClass:new(i, nodes[i].x, nodes[i].y);
+						_nodes[i].calcH(_nodes[destination]);
+					end
+					
+					if current.d + a < _nodes[i].d and current.d + a + _nodes[i].h < _nodes[destination].d then
+						-- update total costs (distance)
+						-- update parent
+						-- put into open bin if not already there and not destination		
+						ASTAR.updateNode(openBin, _nodes, i, current.d + a, current.id, destination);						
+					end -- compare with d_i and d_destination
+									
+				end -- a >= 0
+			end -- for i,a in pairs(costs[current])
+		end -- if costs[current] ~= nil
+		
+	end -- while #openBin > 0	
+	
+	-- get path
+	if _nodes[destination].d < math.huge then -- totalCosts of destination have to be less than infinity otherwise no path was found.
+		local k = destination;
+		while _nodes[k].parent > 0 do
+			table.insert(path, 1, _nodes[k].parent);
+			k = _nodes[k].parent;
+		end
+	end
+	
+	return path, _nodes[destination].d
+	
+end
+
+
+function courseplay.algo.interpolation_search(bin, X)
+
+	local left = 1;
+	local right = #bin;
+	local mid = 0;
+	
+	if X < bin[right] then
+		mid = nil;
+	elseif X > bin[left] then
+		mid = nil;
+	else
+	
+		while left < right do
+		
+			if bin[right] - bin[left] == 0 then
+				if bin[left] == X then
+					mid = left;
+				else
+					mid = nil;
+				end
+				break;
+			end
+			
+			mid = left + ((X - bin[left]) * (right - left)) / (bin[right] - bin[left]);
+			mid = math.floor(mid + 0.5);
+		
+			if X < bin[mid] then
+				if left < mid + 1 then
+					left = mid + 1;
+				else
+					mid = nil;
+					break
+				end
+			elseif X > bin[mid] then
+				if right > mid - 1 then
+					right = mid - 1;
+				else
+					mid = nil;
+					break
+				end
+				
+			else
+				break;
+			end
+			i = i+1;
+		end --end while
+		
+		if right - left == 0 then
+			if bin[left] == X then
+				mid = left;
+			else
+				mid = nil;
+			end
+		end
+	
+	end -- else (X was to find in the array)
+	
+	return mid;
+
+end
+
