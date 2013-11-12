@@ -228,7 +228,12 @@ function inputCourseNameDialogue:onSaveClick()
 		
 	elseif vehicle.cp.saveWhat == 'filter' then
 		vehicle.cp.hud.filter = self.textInputElement.text;
-		local button = vehicle.cp.buttons["2"][vehicle.cp.hud.filterButtonIndex];
+		local button;
+		if vehicle.cp.hud.currentPage == 2 then
+			button = vehicle.cp.buttons["2"][vehicle.cp.hud.filterButtonIndex];
+		else
+			button = vehicle.cp.buttons["10"][vehicle.cp.hud.filterButtonIndex10];
+		end
 		courseplay.button.setOverlay(button, 2);
 		courseplay.settings.setReloadCourseItems(vehicle);
 		

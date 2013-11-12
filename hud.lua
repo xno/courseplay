@@ -552,34 +552,10 @@ end;
 
 function courseplay.hud.loadPage(vehicle, page)
 	
-	if page == 2 then	
-		-- update courses?
-		if vehicle.cp.reloadCourseItems then
-			courseplay.courses.reload(vehicle)
-		end
-		-- end update courses
+	if page == 2 then
+		-- load courses into hud lines	
+		courseplay.hud.loadCourses(vehicle, 2)
 		
-		local n_courses = #(vehicle.cp.hud.courses)
-		local offset = courseplay.hud.offset; --0.006 (button width)
-		
-		-- set line text
-		local courseName = ""
-		for line = 1, n_courses do
-			courseName = vehicle.cp.hud.courses[line].displayname
-			if courseName == nil or courseName == "" then
-				courseName = "-";
-			end;
-			vehicle.cp.hud.content.pages[2][line][1].text = courseName;
-			if vehicle.cp.hud.courses[line].type == "course" then
-				vehicle.cp.hud.content.pages[2][line][1].indention = vehicle.cp.hud.courses[line].level * offset
-			else
-				vehicle.cp.hud.content.pages[2][line][1].indention = (vehicle.cp.hud.courses[line].level + 1) * offset
-			end
-		end;
-		for line = n_courses+1, courseplay.hud.numLines do
-			vehicle.cp.hud.content.pages[2][line][1].text = nil;
-		end
-	
 		-- enable and disable buttons:
 		courseplay.buttonsActiveEnabled(nil, vehicle, 'page2')
 		
@@ -593,7 +569,7 @@ function courseplay.hud.loadPage(vehicle, page)
 			vehicle.cp.hud.content.pages[10][2][2].text = vehicle.cp.hud.endNode.name;
 			
 			vehicle.cp.hud.content.pages[10][3][1].text = 'Connection: ';
-			vehicle.cp.hud.content.pages[10][3][2].text = vehicle.cp.hud.connection.name;
+			vehicle.cp.hud.content.pages[10][3][2].text = vehicle.cp.hud.connection.displayname;
 			
 			vehicle.cp.hud.content.pages[10][4][1].text = 'Path: ';
 			if vehicle.cp.steetPath and vehicle.cp.streetPath.length then
@@ -613,7 +589,7 @@ function courseplay.hud.loadPage(vehicle, page)
 			else
 				vehicle.cp.hud.nodeListPrev = true;
 			end
-			if vehicle.cp.hud.firstNodeInList + courseplay.hud.numLines -1 > #g_currentMission.cp_sortedNodes then
+			if vehicle.cp.hud.firstNodeInList + courseplay.hud.numLines -1 >= #g_currentMission.cp_sortedNodes then
 				max = #g_currentMission.cp_sortedNodes - vehicle.cp.hud.firstNodeInList + 1;
 				vehicle.cp.hud.nodeListNext = false;
 			else
@@ -626,9 +602,46 @@ function courseplay.hud.loadPage(vehicle, page)
 		
 		elseif vehicle.cp.hud.currentSubPage == 3 then
 		-- choose connection
+			-- load courses
+			courseplay.hud.loadCourses(vehicle, 10)
 		
 		end -- if SubPage == y
+		
+		-- enable and disable buttons:
+		courseplay.buttonsActiveEnabled(nil, vehicle, 'page10')
+		
 	end -- if page == x
 	
 	vehicle.cp.hud.reloadPage[page] = false
 end;
+
+function courseplay.hud.loadCourses(vehicle, page)
+
+	-- update courses?
+	if vehicle.cp.reloadCourseItems then
+		courseplay.courses.reload(vehicle)
+	end
+	-- end update courses
+	
+	local n_courses = #(vehicle.cp.hud.courses)
+	local offset = courseplay.hud.offset; --0.006 (button width)
+	
+	-- set line text
+	local courseName = ""
+	for line = 1, n_courses do
+		courseName = vehicle.cp.hud.courses[line].displayname
+		if courseName == nil or courseName == "" then
+			courseName = "-";
+		end;
+		vehicle.cp.hud.content.pages[page][line][1].text = courseName;
+		if vehicle.cp.hud.courses[line].type == "course" then
+			vehicle.cp.hud.content.pages[page][line][1].indention = vehicle.cp.hud.courses[line].level * offset
+		else
+			vehicle.cp.hud.content.pages[page][line][1].indention = (vehicle.cp.hud.courses[line].level + 1) * offset
+		end
+	end;
+	for line = n_courses+1, courseplay.hud.numLines do
+		vehicle.cp.hud.content.pages[page][line][1].text = nil;
+	end
+
+end

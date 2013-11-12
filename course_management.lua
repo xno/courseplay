@@ -40,7 +40,12 @@ function courseplay:showSaveCourseForm(self, saveWhat)
 			end;
 		else
 			self.cp.hud.filter = '';
-			local button = self.cp.buttons["2"][self.cp.hud.filterButtonIndex];
+			local button;
+			if self.cp.hud.currentPage == 2 then
+				button = self.cp.buttons["2"][self.cp.hud.filterButtonIndex];
+			else
+				button = self.cp.buttons["10"][self.cp.hud.filterButtonIndex10];
+			end
 			courseplay.button.setOverlay(button, 1);
 			courseplay.settings.setReloadCourseItems(self);
 		end;
@@ -1437,8 +1442,8 @@ function courseplay.courses.findStreetCourse(vehicle)
 	--courseplay.courses.resetStreetCourse(vehicle);	
 	if startNode.id and endNode.id then
 		path._path, path.length = courseplay.courses.findStreetPath(startNode.id, endNode.id);
-		if path.length = math.huge then
-			courseplay.courses.resetStreetCourse();
+		if path.length == math.huge then
+			courseplay.courses.resetStreetCourse(vehicle);
 		end
 	end	
 end

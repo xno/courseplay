@@ -311,7 +311,9 @@ function SortedArrayClass:insert(X)
 	local right = #self;
 	local mid = 0;
 	
-	if X <= self[right] then
+	if right == 0 then
+		mid = 1;
+	elseif X <= self[right] then
 		mid = right + 1;
 	elseif X > self[left] then
 		mid = 1;

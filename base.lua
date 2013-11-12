@@ -642,16 +642,29 @@ function courseplay:load(xmlFile)
 
 
 	-- Page 10: Road Drive System
-	
-	-- subpage 1 and 2
+	-- subpage 1,2 and 3
 	for i=1, courseplay.hud.numLines do
-		courseplay:register_button(self, 10, "blank.dds", "rowButton", i, courseplay.hud.infoBasePosX, courseplay.hud.linesPosY[i], aiModeQuickSwitch.minX - courseplay.hud.infoBasePosX - 0.005, 0.015, i, nil, true);
+		courseplay:register_button(self, 10, "blank.dds", "rowButton", i, courseplay.hud.infoBasePosX, courseplay.hud.linesPosY[i], courseplay.hud.col2posX[10+1]-courseplay.hud.infoBasePosX, 0.015, i, nil, true);
 	end;
 	
 	-- subpage 2
 	courseplay:register_button(self, 10, "navigate_up.dds",   "shiftHudNodes", -courseplay.hud.numLines, listArrowX, courseplay.hud.linesPosY[1] - 0.003,                       w24px, h24px, nil, -courseplay.hud.numLines*2);
 	courseplay:register_button(self, 10, "navigate_down.dds", "shiftHudNodes",  courseplay.hud.numLines, listArrowX, courseplay.hud.linesPosY[courseplay.hud.numLines] - 0.003, w24px, h24px, nil,  courseplay.hud.numLines*2);
 	courseplay:register_button(self, 10, nil, "shiftHudNodes",  -1, courseListMouseWheelArea.x, courseListMouseWheelArea.y, courseListMouseWheelArea.width, courseListMouseWheelArea.height, nil, -courseplay.hud.numLines, nil, true);
+	
+	-- subpage 3
+	--course navigation
+	courseplay:register_button(self, 10, "navigate_up.dds",   "shiftHudCourses", -courseplay.hud.numLines, listArrowX, courseplay.hud.linesPosY[1] - 0.003,                       w24px, h24px, nil, -courseplay.hud.numLines*2);
+	courseplay:register_button(self, 10, "navigate_down.dds", "shiftHudCourses",  courseplay.hud.numLines, listArrowX, courseplay.hud.linesPosY[courseplay.hud.numLines] - 0.003, w24px, h24px, nil,  courseplay.hud.numLines*2);
+	
+	for i=1, courseplay.hud.numLines do
+		local expandButtonIndex = courseplay:register_button(self, 10, "folder_expand.png", "expandFolder", i, buttonX[0], courseplay.hud.linesButtonPosY[i], w16px, h16px, i, nil, false);
+		courseplay.button.addOverlay(self.cp.buttons["10"][expandButtonIndex], 2, "folder_reduce.png");
+--		courseplay:register_button(self, -2, nil, nil, nil, buttonX[1], courseplay.hud.linesButtonPosY[i], hoverAreaWidth, mouseWheelArea.h, i, nil, true, false);
+	end
+	self.cp.hud.filterButtonIndex10 = courseplay:register_button(self, 10, "searchGlass.png", "showSaveCourseForm", "filter", buttonX[2], courseplay.hud.infoBasePosY + 0.2395, w24px, h24px);
+	courseplay.button.addOverlay(self.cp.buttons["10"][self.cp.hud.filterButtonIndex10], 2, "cancel.png");
+	
 	
 	self.fold_move_direction = 1;
 

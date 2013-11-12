@@ -273,6 +273,18 @@ function courseplay:renderButton(self, button)
 				else
 					button.show = false;
 				end
+			elseif fn == "showSaveCourseForm" and prm == "filter" then
+				button.show = not self.cp.hud.choose_parent;
+			elseif fn == "shiftHudCourses" then
+				if self.cp.hud.currentSubPage == 3 then
+					if prm < 0 then
+						button.show = self.cp.hud.courseListPrev;
+					elseif prm > 0 then
+						button.show = self.cp.hud.courseListNext;
+					end;
+				else
+					button.show = false;
+				end
 			end;
 		end;
 

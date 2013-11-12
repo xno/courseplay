@@ -281,9 +281,16 @@ function courseplay:executeFunction(self, func, value, overwrittenPage)
 				elseif self.cp.hud.nodeToChoose == 'end' then
 					self.cp.hud.endNode = g_currentMission.cp_sortedNodes[self.cp.hud.firstNodeInList+line-1];
 				end
+				-- todo: check if there exists already a connection and load it
 				self.cp.hud.currentSubPage = 1;
 				self.cp.hud.reloadPage[10] = true;
-			end
+			elseif self.cp.hud.currentSubPage == 3 then
+				self.cp.hud.connection = self.cp.hud.courses[line];
+				-- todo: create and save connection
+				self.cp.hud.currentSubPage = 1;
+				self.cp.hud.reloadPage[10] = true;
+				
+			end -- end subPage == y
 		
 		end; --END is page 0 or 1 or 10
 	end; --END isRowFunction

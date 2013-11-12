@@ -325,7 +325,60 @@ function courseplay:buttonsActiveEnabled(self, section)
 				button.canBeClicked = true;
 			end;
 		end;
-	end;
+		
+	elseif self.cp.hud.currentPage == 10 and section =='page10' then
+		local enable, hide = true, false
+		local n_courses = #(self.cp.hud.courses)
+--		local nofolders = nil == next(g_currentMission.cp_folders);
+		local offset = courseplay.hud.offset  --0.006 (button width)
+		local row
+		for _, button in pairs(self.cp.buttons['10']) do
+			row = button.row
+			enable = true
+			hide = false
+				
+			if button.function_to_call == "showSaveCourseForm" and button.parameter == "filter" then
+				if self.cp.hud.currentSubPage ~= 3 then
+					hide = true;
+				end
+			end
+				
+			if button.function_to_call == "expandFolder" then
+				if self.cp.hud.currentSubPage ~= 3 then
+					hide = true;
+				else
+					if row > n_courses or self.cp.hud.courses[row].type == 'course' then
+						hide = true
+					else
+						-- position the expandFolder buttons
+						courseplay.button.setOffset(button, self.cp.hud.courses[row].level * offset, 0)
+						
+						if self.cp.hud.courses[row].id == 0 then
+							hide = true --hide for level 0 "folder"
+						else
+							-- check if plus or minus should show up
+							if self.cp.folder_settings[self.cp.hud.courses[row].id].showChildren then
+								courseplay.button.setOverlay(button,2)
+							else
+								courseplay.button.setOverlay(button,1)
+							end
+							if g_currentMission.cp_sorted.info[ self.cp.hud.courses[row].uid ].lastChild == 0 then
+								enable = false	-- button has no children
+							end
+						end
+					end --type ~= course
+				end -- subPage == 3
+			end -- expandFolder
+
+			button.isDisabled = (not enable) or hide
+			button.isHidden = hide
+		end; -- for all buttons
+		
+		if self.cp.hud.currentSubPage == 3 then
+			courseplay.settings.validateCourseListArrows(self)
+		end
+		
+	end; -- page == x
 end;
 
 function courseplay:change_combine_offset(self, change_by)
@@ -627,14 +680,18 @@ function courseplay.settings.update_folders(vehicle)
 end
 
 function courseplay.settings.setReloadCourseItems(vehicle)
+-- function to set reloadCourseItems to true
+-- in order that this change takes effect, also pages, that contain course information have to be reloaded, therefore this function.
 	if vehicle ~= nil then
-		vehicle.cp.reloadCourseItems = true
-		vehicle.cp.hud.reloadPage[2] = true
+		vehicle.cp.reloadCourseItems = true;
+		vehicle.cp.hud.reloadPage[2] = true;
+		vehicle.cp.hud.reloadPage[10] = true;
 	else
 		for k,v in pairs(g_currentMission.steerables) do
 			if v.cp ~= nil then 		-- alternative way to check if SpecializationUtil.hasSpecialization(courseplay, v.specializations)
-				v.cp.reloadCourseItems = true
-				v.cp.hud.reloadPage[2] = true
+				v.cp.reloadCourseItems = true;
+				v.cp.hud.reloadPage[2] = true;
+				v.cp.hud.reloadPage[10] = true;
 			end
 		end
 	end
@@ -697,6 +754,7 @@ function courseplay.hud.setCourses(self, start_index)
 	end -- i<3
 	
 	self.cp.hud.reloadPage[2] = true
+	self.cp.hud.reloadPage[10] = true
 end
 
 function courseplay.hud.reloadCourses(vehicle)
@@ -784,6 +842,7 @@ function courseplay:shiftHudCourses(vehicle, change_by)
 	end
 	
 	vehicle.cp.hud.reloadPage[2] = true
+	vehicle.cp.hud.reloadPage[10] = true
 end
 
 function courseplay.shiftHudNodes(self, vehicle, shiftBy)
