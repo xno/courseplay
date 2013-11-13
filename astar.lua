@@ -433,11 +433,11 @@ function ASTAR.updateNode(openBin, nodes, node_id, newD, parent, destination)
 			-- update total costs (distance)
 			nodes[node_id].d = newD;
 			
-			openBin.insert(nodes[node_id]);
+			openBin:insert(nodes[node_id]);
 			nodes[node_id].inBin = true;
 		else
 			-- the node to update is already in the openBin, find it there:
-			pos = openBin.find(nodes[node_id]);
+			pos = openBin:find(nodes[node_id]);
 			
 			-- update total costs (distance)
 			nodes[node_id].d = newD;
@@ -453,6 +453,24 @@ function ASTAR.updateNode(openBin, nodes, node_id, newD, parent, destination)
 	end -- node ~= destination
 end
 
+function ASTAR.le(A,B)
+	-- if A is a table and has the function __le defined in a metatable, the following should work (it worked on my PC with Lua 5.2), but doesn't in LS 2013:
+	--print('le: ' .. tostring(a <= 0)); -- does not work
+  	--print('ge: ' .. tostring(0 >= a)); -- does not work
+  	--print('le: ' .. tostring(0 <= a)); -- does not work
+  	--print('ge: ' .. tostring(a >= 0)); -- does not work
+  	-- (for some strange behaviour: __add works...)
+  	-- therefore this function...
+	local typeA, typeB = type(A), type(B);
+	if typeA == 'table' then
+		return A.__le(A,B);
+	elseif typeB == 'table' then
+		return B.__le(A,B);
+	else
+		return A <= B;
+	end
+end
+
 
 function courseplay.algo.a_star(start, destination, _nodes, costs)
 --[[ PRE
@@ -464,7 +482,6 @@ function courseplay.algo.a_star(start, destination, _nodes, costs)
 --[[ POST
 	path: if success: path {1=start, 2=i, ... ,n=destination}, if no success: empty matrix
 --]]
-
 -- use binary heap instead of sorted array?
 -- disadvantage: update position of node in bin needs to loop through whole bin in order to find the node to update (with a sorted array, it can be searched for the value by interpolation search...)
 	
@@ -482,27 +499,21 @@ function courseplay.algo.a_star(start, destination, _nodes, costs)
 	nodes[start].inBin = true;
 	
 	-- find path
-  print('ASTAR was called')
-  print('#openBin: ' .. tostring(#openBin))
 	while #openBin > 0 do
 		-- remove last element in bin -> order bin in a way the element, that should be removed is at the end...
 		current = openBin:pop();
-		current.inBin = false;
-  print('current._id: ' .. tostring(current._id))	
+		current.inBin = false;	
 		-- check for children
 		if costs[current._id] ~= nil then -- else no children...
 			-- loop through all children
 			for i,a in pairs(costs[current._id]) do -- child with id i and cost a from current to i
-  print('child: '  .. tostring(i) .. ' - ' .. tostring(a))
-				if a >= 0 then -- otherways it is treated as infinity -> no path / not a child
-					
+				if ASTAR.le(0,a) then -- 0 <= a  (otherways it is treated as infinity -> no path / not a child)
 					if not nodes[i] then
 						nodes[i] = NodeClass:new(i, _nodes[i].x, _nodes[i].y);
-						nodes[i].calcH(nodes[destination]);
+						nodes[i]:calcH(nodes[destination]);
 					end
 					
 					if current.d + a < nodes[i].d and current.d + a + nodes[i].h < nodes[destination].d then
-  print('update')
 						-- update total costs (distance)
 						-- update parent
 						-- put into open bin if not already there and not destination		
@@ -512,7 +523,6 @@ function courseplay.algo.a_star(start, destination, _nodes, costs)
 				end -- a >= 0
 			end -- for i,a in pairs(costs[current])
 		end -- if costs[current] ~= nil
-  print('#openBin: ' .. tostring(#openBin))	
 	end -- while #openBin > 0	
 	
 	-- get path

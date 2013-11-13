@@ -294,6 +294,9 @@ function courseplay:executeFunction(self, func, value, overwrittenPage)
 						self.cp.hud.connection = g_currentMission.cp_courses[g_currentMission.cp_nodes.conn[id1][id2].courseID];					
 					end
 				end
+				-- reset the calculated shortest path
+				courseplay.courses.resetStreetCourse(self);
+				-- force a reload on SubPage 1
 				self.cp.hud.currentSubPage = 1;
 				self.cp.hud.reloadPage[10] = true;
 				

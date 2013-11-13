@@ -165,9 +165,6 @@ function courseplay.courses.merge(waypoints1, waypoints2, add_course_at_end)
 	end
 	
 	local course = {};
-	
-	local course1_waypoints = course1.Waypoints;
-	local course2_waypoints = course2.waypoints;
 
 	local old_distance = 51
 	local lastWP = #waypoints1;
@@ -846,6 +843,7 @@ function courseplay.courses.NodeConnectionClass:save(File, append)
 end
 
 function courseplay.courses.NodeConnectionClass.__lt(A,B)
+--print('lower was called')
 	local typeA, typeB = type(A), type(B);
 	if typeA == 'table' then
 		if typeB == 'table' then
@@ -863,6 +861,7 @@ function courseplay.courses.NodeConnectionClass.__lt(A,B)
 end
 
 function courseplay.courses.NodeConnectionClass.__le(A,B)
+--print('lowerEqual was called')
 	local typeA, typeB = type(A), type(B);
 	if typeA == 'table' then
 		if typeB == 'table' then
@@ -880,7 +879,7 @@ function courseplay.courses.NodeConnectionClass.__le(A,B)
 end
 
 function courseplay.courses.NodeConnectionClass.__add(A,B)
-	print('add was called')
+--print('add was called')
 	local typeA, typeB = type(A), type(B);
 	if typeA == 'table' then
 		if typeB == 'table' then
@@ -898,6 +897,7 @@ function courseplay.courses.NodeConnectionClass.__add(A,B)
 end
 
 function courseplay.courses.NodeConnectionClass.__sub(A,B)
+--print('sub was called')
 	local typeA, typeB = type(A), type(B);
 	if typeA == 'table' then
 		if typeB == 'table' then
@@ -915,6 +915,7 @@ function courseplay.courses.NodeConnectionClass.__sub(A,B)
 end
 
 function courseplay.courses.NodeConnectionClass.__eq(A,B)
+--print('equal was called')
 	local typeA, typeB = type(A), type(B);
 	if typeA == 'table' then
 		if typeB == 'table' then
@@ -1444,7 +1445,6 @@ function courseplay.courses.findStreetCourse(vehicle)
 	if startNode.id and endNode.id then
 		path._path, path.length = courseplay.courses.findStreetPath(startNode.id, endNode.id);
 		if path.length == math.huge then
-			print('math.huge - no course found')
 			courseplay.courses.resetStreetCourse(vehicle);
 		end
 	end	
