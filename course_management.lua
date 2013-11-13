@@ -727,19 +727,19 @@ function courseplay.courses.NodeConnectionClass:getWaypoints()
 end
 
 function courseplay.courses.NodeConnectionClass:calcD()
-	if self.course then
+	if self.courseID then
 		local length = 0;
 		local dx,dy;
-		local waypoints = self.getWaypoints();
-		local x_old = waypoints[1].x;
-		local y_old = waypoints[1].y;
+		local waypoints = self:getWaypoints();
+		local x_old = waypoints[1].cx;
+		local y_old = waypoints[1].cz;
 		
 		for i = 2,#waypoints do
-			dx = waypoints[i].x - x_old;
-			dy = waypoints[i].y - y_old;
+			dx = waypoints[i].cx - x_old;
+			dy = waypoints[i].cz - y_old;
 			length = length + math.sqrt(dx*dx + dy*dy);
-			x_old = waypoints[i].x;
-			y_old = waypoints[i].y;
+			x_old = waypoints[i].cx;
+			y_old = waypoints[i].cz;
 		end
 		
 		self.d = length;
@@ -748,7 +748,7 @@ end
 
 function courseplay.courses.NodeConnectionClass:loadFromXML(File, connNR)
 -- returns connection if success, 0 if the connection does not exist, nil if the connection contains a critical error (e.g. no ids)
-	local currentConn, id1, id2, CourseID, d, conn;
+	local currentConn, id1, id2, courseID, d, conn;
 	local success = true;
 	
 	-- current connection
@@ -774,8 +774,8 @@ function courseplay.courses.NodeConnectionClass:loadFromXML(File, connNR)
 		end
 		
 		-- connection id1
-		CourseID = getXMLInt(File, currentConn .. "#CourseID");
-		if CourseID == nil then
+		courseID = getXMLInt(File, currentConn .. "#courseID");
+		if courseID == nil then
 			success = false;
 			conn = nil;
 		end
@@ -789,7 +789,7 @@ function courseplay.courses.NodeConnectionClass:loadFromXML(File, connNR)
 		if d then
 			d = tonumber(d);
 		end
-		conn = self:new(id1, id2, CourseID, d);
+		conn = self:new(id1, id2, courseID, d);
 		if not d then
 			conn:calcD();
 		end
@@ -799,9 +799,9 @@ function courseplay.courses.NodeConnectionClass:loadFromXML(File, connNR)
 end
 
 function courseplay.courses.NodeConnectionClass:_XML()
-	local object = { _types = {id1='Int', id2='Int', CourseID='Int', d='String'} };
+	local object = { _types = {id1='Int', id2='Int', courseID='Int', d='String'} };
 	object.d = tostring(courseplay.round(nil, self.d, 4));
-	object.CourseID = self.CourseID;
+	object.courseID = self.courseID;
 	object.id2 = self.id2;
 	object.id1 = self.id1;
 	return object;
@@ -880,6 +880,7 @@ function courseplay.courses.NodeConnectionClass.__le(A,B)
 end
 
 function courseplay.courses.NodeConnectionClass.__add(A,B)
+	print('add was called')
 	local typeA, typeB = type(A), type(B);
 	if typeA == 'table' then
 		if typeB == 'table' then
@@ -959,7 +960,7 @@ function courseplay.courses.delete_save_all(self)
 				for i,node in pairs(g_currentMission.cp_nodes.conn) do
 					for j,conn in pairs(node) do
 						conn_xml = conn:_XML();
-						file:write('\t\t<connection id1="' .. conn_xml.id1 .. '" id2="' .. conn_xml.id2 .. '" CourseID="' .. conn_xml.CourseID .. '" d="' .. conn_xml.d ..'" />\n');
+						file:write('\t\t<connection id1="' .. conn_xml.id1 .. '" id2="' .. conn_xml.id2 .. '" courseID="' .. conn_xml.courseID .. '" d="' .. conn_xml.d ..'" />\n');
 					end
 				end
 				file:write('\t</connections>\n')
@@ -1443,6 +1444,7 @@ function courseplay.courses.findStreetCourse(vehicle)
 	if startNode.id and endNode.id then
 		path._path, path.length = courseplay.courses.findStreetPath(startNode.id, endNode.id);
 		if path.length == math.huge then
+			print('math.huge - no course found')
 			courseplay.courses.resetStreetCourse(vehicle);
 		end
 	end	

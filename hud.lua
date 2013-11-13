@@ -572,7 +572,7 @@ function courseplay.hud.loadPage(vehicle, page)
 			vehicle.cp.hud.content.pages[10][3][2].text = vehicle.cp.hud.connection.displayname;
 			
 			vehicle.cp.hud.content.pages[10][4][1].text = 'Path: ';
-			if vehicle.cp.steetPath and vehicle.cp.streetPath.length then
+			if vehicle.cp.streetPath and vehicle.cp.streetPath.length then
 				vehicle.cp.hud.content.pages[10][4][2].text = tostring(vehicle.cp.streetPath.length) .. 'm'
 			else
 				vehicle.cp.hud.content.pages[10][4][2].text = 'No path found.';
@@ -603,16 +603,16 @@ function courseplay.hud.loadPage(vehicle, page)
 		elseif vehicle.cp.hud.currentSubPage == 3 then
 		-- choose connection
 			-- load courses
-			courseplay.hud.loadCourses(vehicle, 10)
+			courseplay.hud.loadCourses(vehicle, 10);
 		
 		end -- if SubPage == y
 		
 		-- enable and disable buttons:
-		courseplay.buttonsActiveEnabled(nil, vehicle, 'page10')
+		courseplay.buttonsActiveEnabled(nil, vehicle, 'page10');
 		
 	end -- if page == x
 	
-	vehicle.cp.hud.reloadPage[page] = false
+	vehicle.cp.hud.reloadPage[page] = false;
 end;
 
 function courseplay.hud.loadCourses(vehicle, page)

@@ -260,6 +260,8 @@ function courseplay:executeFunction(self, func, value, overwrittenPage)
 			end; --END if not self.drive
 			
 		elseif page == 10 then
+			local id1 = self.cp.hud.startNode.id;
+			local id2 = self.cp.hud.endNode.id;
 			if self.cp.hud.currentSubPage == 1 then
 				if line == 1 and #g_currentMission.cp_sortedNodes > 0 then
 					self.cp.hud.nodeToChoose = 'start';
@@ -274,19 +276,41 @@ function courseplay:executeFunction(self, func, value, overwrittenPage)
 					self.cp.hud.reloadPage[10] = true;
 				elseif line == 4 then
 					courseplay.courses.findStreetCourse(self)
+					self.cp.hud.reloadPage[10] = true;
 				end
+				
 			elseif self.cp.hud.currentSubPage == 2 then
 				if self.cp.hud.nodeToChoose == 'start' then
 					self.cp.hud.startNode = g_currentMission.cp_sortedNodes[self.cp.hud.firstNodeInList+line-1];
+					id1 = self.cp.hud.startNode.id;
 				elseif self.cp.hud.nodeToChoose == 'end' then
 					self.cp.hud.endNode = g_currentMission.cp_sortedNodes[self.cp.hud.firstNodeInList+line-1];
+					id2 = self.cp.hud.endNode.id;
 				end
-				-- todo: check if there exists already a connection and load it
+				-- check if there exists already a connection and load it
+				self.cp.hud.connection = {};
+				if id1 and id2 then
+					if g_currentMission.cp_nodes.conn[id1] and g_currentMission.cp_nodes.conn[id1][id2] then
+						self.cp.hud.connection = g_currentMission.cp_courses[g_currentMission.cp_nodes.conn[id1][id2].courseID];					
+					end
+				end
 				self.cp.hud.currentSubPage = 1;
 				self.cp.hud.reloadPage[10] = true;
+				
 			elseif self.cp.hud.currentSubPage == 3 then
-				self.cp.hud.connection = self.cp.hud.courses[line];
-				-- todo: create and save connection
+				-- check if it's a course
+				if id1 and id2 and self.cp.hud.courses[line].type == 'course' then
+					self.cp.hud.connection = self.cp.hud.courses[line];
+					-- create and save connection
+					local conn = courseplay.courses.NodeConnectionClass:new(id1, id2, self.cp.hud.courses[line].id);
+					conn:calcD();
+					if not g_currentMission.cp_nodes.conn[id1] then
+						g_currentMission.cp_nodes.conn[id1] = {};
+					end
+					g_currentMission.cp_nodes.conn[id1][id2] = conn;
+					conn:save(nil, true);-- todo: if already exists: overwrite!
+				end
+				
 				self.cp.hud.currentSubPage = 1;
 				self.cp.hud.reloadPage[10] = true;
 				
