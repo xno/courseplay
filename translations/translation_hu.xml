@@ -6,6 +6,8 @@
 		<text name="COURSEPLAY_UNLOADING_DRIVER_START" 					 text="Szállító elindítása" />
 		<text name="COURSEPLAY_UNLOADING_DRIVER_STOP" 					 text="Szállító megállítása" />
 		<text name="COURSEPLAY_STOP_AT_LAST_POINT" 						 text="Állj az utlsó pontnál, következő triggernél" />
+		<text name="COURSEPLAY_NUMBER_OF_RUNS" 							 text="Number of runs to preform" /> <!-- TODO: TRANSLATION! -->
+ 		<text name="COURSEPLAY_UNLIMITED" 								 text="Unlimited" /> <!-- TODO: TRANSLATION! -->
 		<text name="COURSEPLAY_UNLOADING_SIDE" 							 text="Ürítés oldala:" />
 		<text name="COURSEPLAY_UNLOADING_SIDE_NONE" 					 text="automatikus" />
 		<text name="COURSEPLAY_LEFT" 									 text="bal" />
@@ -57,15 +59,18 @@
 		<text name="COURSEPLAY_REACHED_WAITING_POINT" 					 text="a várakozási ponton van." />
 		<text name="COURSEPLAY_REACHED_END_POINT" 						 text="az utolsó ponton van." />
 		<text name="COURSEPLAY_REACHED_END_POINT_MODE_1" 				 text="has finished grain transport." />  <!-- TODO: TRANSLATION! -->
+		<text name="COURSEPLAY_REACHED_END_POINT_MODE_8" 				 text="has finished liquid transport." /> <!-- TODO: TRANSLATION! -->
 		<text name="COURSEPLAY_WORK_END" 								 text="végzett a munkával." />
 		<text name="COURSEPLAY_NEEDS_UNLOADING" 						 text=": A munka folytatásához ki kell ürítened!" />
 		<text name="COURSEPLAY_NEEDS_REFILLING" 						 text=": A munkaeszközt újra kell tölteni." />
 		<text name="COURSEPLAY_UNLOADING_BALES" 						 text="kirakja a bálákat." />
 		<text name="COURSEPLAY_IS_IN_TRAFFIC" 							 text="dugóban van (forgalomban)" />
 		<text name="COURSEPLAY_TIPTRIGGER_REACHED" 						 text="Elérte a triggert" />
+		<text name="COURSEPLAY_LAST_VAILD_TIP_DIST" 					 text="Dist 2 unload point" />   <!-- TODO: TRANSLATE its the distance to the unload point,where to tip while making heaps by reverse tipping -->
 		<text name="COURSEPLAY_LOADING_AMOUNT" 							 text="Töltés: %d -ból %d" />
 		<text name="COURSEPLAY_WAYPOINT_MODE" 							 text="Útpontok megjelenítése" />
 		<text name="COURSEPLAY_PATHFINDING" 							 text="Útvonal keresése" />
+		<text name="COURSEPLAY_PLOUGH_FIELD_EDGE" 						 text="Plough past field edge" /> <!-- TODO: TRANSLATION! -->
 		<text name="COURSEPLAY_COMBINE_OFFSET_HORIZONTAL" 				 text="Oldaltávolság:" />
 		<text name="COURSEPLAY_START_AT" 								 text="Tölteni indul:" />
 		<text name="COURSEPLAY_TURN_ON_FIELD"					 		 text="Turn on field:" />  			<!-- TODO: TRANSLATION! -->
@@ -126,8 +131,11 @@
 		<text name="COURSEPLAY_SHOULD_BE_REFUELED" 						 text="Az üzemanyag fogyóban! (20% alatt)" />
 		<text name="COURSEPLAY_MUST_BE_REFUELED" 						 text="Újra kell tankolnod!" />
 		<text name="COURSEPLAY_IS_BEING_REFUELED" 						 text="tankol!" />
+		<text name="COURSEPLAY_IS_BEING_WEIGHED" 						 text="is being weighed" />    <!-- TODO: TRANSLATE -->
 		<text name="COURSEPLAY_WAITING_POINTS_TOO_MANY" 				 text="Túl sok várakozási pont van! Csak %d szükséges." />
 		<text name="COURSEPLAY_WAITING_POINTS_TOO_FEW" 					 text="Túl kevés a várakozási pont! %d szükséges." />
+		<text name="COURSEPLAY_UNLOADING_POINTS_TOO_MANY" 				 text="Too many unload points! Only %d allowed." />    <!-- TODO: TRANSLATE -->
+		<text name="COURSEPLAY_UNLOADING_POINTS_TOO_FEW"				 text="Too few unload points! %d needed." />           <!-- TODO: TRANSLATE -->
 		<text name="COURSEPLAY_WRONG_TRAILER" 							 text="Rossz szállítóeszköz ehhez a művelethez" />
 		<text name="COURSEPLAY_WRONG_TOOL" 								 text="Rossz munkaeszköz ehhez a művelethez" />
 		<text name="COURSEPLAY_MODE_NOT_SUPPORTED_FOR_VEHICLETYPE" 		 text="Ez a járműtípus nem megfelelő ehhez a művelethez." />
@@ -135,6 +143,8 @@
 		<text name="COURSEPLAY_LANE_OFFSET" 							 text="Közlekedő út eltolás:" />
 		<text name="COURSEPLAY_TOOL_OFFSET_X" 							 text="Művelés eltolás oldalra:" />
 		<text name="COURSEPLAY_TOOL_OFFSET_Z" 							 text="Művelés eltolás előre:" />
+		<text name="COURSEPLAY_LOAD_UNLOAD_OFFSET_X" 					 text="Load/Unload offset horizontal" />     <!-- TODO: TRANSLATE -->
+		<text name="COURSEPLAY_LOAD_UNLOAD_OFFSET_Z" 					 text="Load/Unload/Wait offset vertical" />       <!-- TODO: TRANSLATE -->
 		<text name="COURSEPLAY_FRONT" 									 text="elöl" />
 		<text name="COURSEPLAY_BACK" 									 text="hátul" />
 		<text name="COURSEPLAY_WORK_WIDTH" 								 text="Munkaszélesség:" />
@@ -142,17 +152,21 @@
 		<text name="COURSEPLAY_OPEN_HUD_MODE" 							 text="HUD megnyitása:" />
 		<text name="COURSEPLAY_DEBUG_CHANNELS" 							 text="Hibakereső csatorna:" />
 		<text name="COURSEPLAY_PAGE_TITLE_COURSE_GENERATION" 			 text="Útvonal generálás" />
-		<text name="COURSEPLAY_STARTING_CORNER" 						 text="Kezdő sarok:" />
+    <text name="COURSEPLAY_STARTING_LOCATION" 						 text="Starting location" />  <!-- TO BE TRANSLATED -->
+    <text name="COURSEPLAY_ENDING_LOCATION" 						 text="Ending location" />      <!-- TO BE TRANSLATED -->
 		<text name="COURSEPLAY_STARTING_DIRECTION" 						 text="Művelés kezdő iránya:" />
 		<text name="COURSEPLAY_RETURN_TO_FIRST_POINT" 					 text="Vissza az első pontra" />
 		<text name="COURSEPLAY_CORNER_1" 								 text="Dél/Nyugat" />
 		<text name="COURSEPLAY_CORNER_2" 								 text="Észak/Nyugat" />
 		<text name="COURSEPLAY_CORNER_3" 								 text="Észak/Kelet" />
 		<text name="COURSEPLAY_CORNER_4" 								 text="Dél/Kelet" />
+		<text name="COURSEPLAY_CORNER_5" 								 text="current vehicle position" />  	<!-- TODO: TRANSLATE its used for the new field course genration if U want to use the current position as starting corner -->
+		<text name="COURSEPLAY_CORNER_6" 								 text="last used position" />	<!-- TODO: TRANSLATE its used for the new field course genration if U want to use the last used position as starting corner-->
 		<text name="COURSEPLAY_DIRECTION_1" 							 text="Észak" />
 		<text name="COURSEPLAY_DIRECTION_2" 							 text="Kelet" />
 		<text name="COURSEPLAY_DIRECTION_3" 							 text="Dél" />
 		<text name="COURSEPLAY_DIRECTION_4" 							 text="Nyugat" />
+		<text name="COURSEPLAY_DIRECTION_5" 							 text="Automatic" /> <!-- TODO: TRANSLATE -->
 		<text name="COURSEPLAY_HEADLAND" 								 text="Munkasáv" />
 		<text name="COURSEPLAY_ACTIVATED" 								 text="Bekapcsolva" />
 		<text name="COURSEPLAY_NAME_ONLY" 								 text="Name only" />            <!-- TODO: TRANSLATION! (it's shown while changing the COURSEPLAY_INGAMEMAP_ICONS_SHOWTEXT) -->
@@ -234,7 +248,12 @@
 		<text name="COURSEPLAY_RECORDING_REVERSE_STOP" 					 text="Tolatás leállítása" />
 		<text name="COURSEPLAY_RECORDING_ADD_SPLIT_POINTS"				 text="Osztási pont hozzáadása" />
 		<text name="COURSEPLAY_INGAMEMAP_ICONS_SHOWTEXT" 				 text="Térképikonok: kijelzőszöveg" />
-		<text name="COURSEPLAY_ALWAYS_USE_4WD" 							 text="Mindig összkerékhajtás" />
+		<text name="COURSEPLAY_DRIVECONTROL" 							 text="Drive Control Setting" />
+		<text name="COURSEPLAY_DRIVECONTROL_MODE_0" 					 text="automatikus" />
+		<text name="COURSEPLAY_DRIVECONTROL_MODE_1" 					 text="4WD Always" /> <!-- TODO: TRANSLATION! -->
+		<text name="COURSEPLAY_DRIVECONTROL_MODE_2" 					 text="4WD Always &amp; Foward Diff on for Fieldwork" /> <!-- TODO: TRANSLATION! -->
+		<text name="COURSEPLAY_DRIVECONTROL_MODE_3" 					 text="4WD Always &amp; Rear Diff on for Fieldwork" /> <!-- TODO: TRANSLATION! -->
+		<text name="COURSEPLAY_DRIVECONTROL_MODE_4" 					 text="4WD Always &amp; Both Diffs on for Fieldwork" /> <!-- TODO: TRANSLATION! -->
 		<text name="COURSEPLAY_YES_NO_FIELDSCAN" 						 text="Szeretnéd, hogy a mezők adatait automatikusan beolvassa?" />
 		<text name="COURSEPLAY_YES_NO_WAGES" 							 text="Szeretnéd, hogy a munkásod bért kapjon (%s/óra)?" />
 		<text name="COURSEPLAY_SEEDUSAGECALCULATOR" 					 text="Vetőmag szükséglet számítás" />
@@ -286,6 +305,10 @@
 		<text name="COURSEPLAY_FUEL_SEARCH_FOR"						     text="Refill fuel at gas station" />            <!-- TODO: TRANSLATE! -->
 		<text name="COURSEPLAY_FUEL_ALWAYS"						         text="always" />                                <!-- TODO: TRANSLATE! -->
 		<text name="COURSEPLAY_FUEL_BELOW_20PCT"						 text="below 20%" />                             <!-- TODO: TRANSLATE! -->
+		<text name="COURSEPLAY_FUELSAVEOPTION"						     text="fuel save option" />						 <!-- TODO: TRANSLATE! -->
+		
+		<text name="COURSEPLAY_RELOAD_COURSE_LIST" 						 text="Reload course list" />            <!-- TODO: TRANSLATION! -->
+		<text name="COURSEPLAY_COULDNT_GENERATE_COURSE" 			 text="Couldn't generate course. Try changing the settings or moving the vehicle."/>
 		
 	</texts>
 </l10n>

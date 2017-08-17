@@ -1,6 +1,6 @@
 local abs, max, rad, sin = math.abs, math.max, math.rad, math.sin;
 
-function courseplay:goReverse(vehicle,lx,lz)
+function courseplay:goReverse(vehicle,lx,lz,mode2)
 	local fwd = false;
 	local workTool = courseplay:getFirstReversingWheeledWorkTool(vehicle) or vehicle.cp.workTools[1];
 	local newTarget;
@@ -13,8 +13,8 @@ function courseplay:goReverse(vehicle,lx,lz)
 		if courseplay:isHookLift(workTool) or courseplay:isAttacherModule(workTool) then
 			workTool = workTool.attacherVehicle;
 
-			if workTool == vehicle then
-			workTool = vehicle.cp.workTools[2];
+			if workTool == vehicle and vehicle.cp.workTools[2] ~= nil then
+				workTool = vehicle.cp.workTools[2];
 				if courseplay:isAttacherModule(workTool) then
 					workTool = workTool.attacherVehicle;
 				end;
@@ -30,7 +30,7 @@ function courseplay:goReverse(vehicle,lx,lz)
 				local _, vehicleY, _ = getWorldTranslation(vehicle.cp.DirectionNode);
 				lx, lz = AIVehicleUtil.getDriveDirection(vehicle.cp.DirectionNode, newTarget.revPosX, vehicleY, newTarget.revPosZ);
 			end;
-		elseif not vehicle.cp.mode == 9 then
+		elseif vehicle.cp.mode ~= 9 then
 			-- Start: Fixes issue #525
 			local tx, ty, tz = localToWorld(vehicle.cp.DirectionNode, 0, 1, -3);
 			local nx, ny, nz = localDirectionToWorld(vehicle.cp.DirectionNode, lx, 0, lz);
@@ -41,6 +41,9 @@ function courseplay:goReverse(vehicle,lx,lz)
 	end;
 
 	local node = workTool.cp.realTurningNode;
+	if mode2 then
+		vehicle.cp.toolsRealTurningNode = node;
+	end
 	local isPivot = workTool.cp.isPivot;
 	local xTipper,yTipper,zTipper = getWorldTranslation(node);
 	if debugActive then drawDebugPoint(xTipper, yTipper+5, zTipper, 1, 0 , 0, 1) end;
@@ -80,7 +83,7 @@ function courseplay:goReverse(vehicle,lx,lz)
 			tcx = newTarget.posX;
 			tcz = newTarget.posZ;
 		end;
-	else
+	elseif not mode2 then
 		for i= index, vehicle.cp.numWaypoints do
 			if vehicle.Waypoints[i].rev and not vehicle.Waypoints[i-1].wait then
 				tcx = vehicle.Waypoints[i].cx;
@@ -186,6 +189,8 @@ function courseplay:goReverse(vehicle,lx,lz)
 				end;
 			end;
 		end;
+	elseif mode2 then
+		tcx,tcz = vehicle.cp.curTarget.x, vehicle.cp.curTarget.z;
 	end;
 
 	if debugActive then

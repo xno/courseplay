@@ -65,6 +65,10 @@ function courseplay:getCanVehicleUseMode(vehicle, mode)
 
 	return true;
 end;
+function courseplay:toggleFuelSaveOption(self)
+	self.cp.saveFuelOptionActive = not self.cp.saveFuelOptionActive 
+end
+
 
 function courseplay:toggleAutoRefuel(self)
 	self.cp.allwaysSearchFuel = not self.cp.allwaysSearchFuel 
@@ -106,13 +110,19 @@ end;
 function courseplay:cancelWait(vehicle, cancelStopAtEnd)
 	if vehicle.cp.wait then
 		courseplay:setVehicleWait(vehicle, false);
+		if vehicle.cp.mode == 8 then
+			courseplay:resetMode8(vehicle)
+		end;
 	end;
-	if vehicle.cp.mode == 3 then
+	if vehicle.cp.mode == 1 or vehicle.cp.mode == 3 then
 		vehicle.cp.isUnloaded = true;
 	end;
 	if cancelStopAtEnd then
 		courseplay:setStopAtEnd(vehicle, false);
 	end;
+	if vehicle.cp.runReset == true then
+ 		vehicle.cp.runCounter = 0
+ 	end;
 end;
 
 function courseplay:setStopAtEnd(vehicle, bool)
@@ -217,17 +227,38 @@ function courseplay:changeToolOffsetZ(vehicle, changeBy, force, noDraw)
 	end;
 end;
 
-function courseplay:calculateWorkWidth(vehicle, noDraw)
-	local l,r;
+function courseplay:changeLoadUnloadOffsetX(vehicle, changeBy, force)
+	vehicle.cp.loadUnloadOffsetX = force or (courseplay:round(vehicle.cp.loadUnloadOffsetX, 1) + changeBy);
+	if abs(vehicle.cp.loadUnloadOffsetX) < 0.1 then
+		vehicle.cp.loadUnloadOffsetX = 0;
+	end;
+end;
 
+function courseplay:changeLoadUnloadOffsetZ(vehicle, changeBy, force)
+	vehicle.cp.loadUnloadOffsetZ = force or (courseplay:round(vehicle.cp.loadUnloadOffsetZ, 1) + changeBy);
+	if abs(vehicle.cp.loadUnloadOffsetZ) < 0.1 then
+		vehicle.cp.loadUnloadOffsetZ = 0;
+	end;
+end;
+
+function courseplay:calculateWorkWidth(vehicle, noDraw)
+	
+	if vehicle.cp.manualWorkWidth and noDraw ~= nil then
+		--courseplay:changeWorkWidth(vehicle, nil, vehicle.cp.manualWorkWidth, noDraw); 
+		return
+	end
+	
+	local l,r;
 	courseplay:debug(('%s: calculateWorkWidth()'):format(nameNum(vehicle)), 7);
 	local vehL,vehR = courseplay:getCuttingAreaValuesX(vehicle);
 	courseplay:debug(('\tvehL=%s, vehR=%s'):format(tostring(vehL), tostring(vehR)), 7);
-
+	local shouldBWorkWidth = 0
+	
 	local implL,implR = -9999,9999;
 	if vehicle.attachedImplements then
 		for i,implement in pairs(vehicle.attachedImplements) do
 			local tool = implement.object
+			--print("checking "..tostring(tool.name))
 			local workWidth = courseplay:getSpecialWorkWidth(tool);
 			if vehicle.cp.mode == 9 and tool.cp.hasSpecializationShovel then   
 				workWidth = tool.sizeWidth
@@ -237,38 +268,41 @@ function courseplay:calculateWorkWidth(vehicle, noDraw)
 			end
 			if workWidth then
 				courseplay:debug(('\tSpecial workWidth found: %.1fm'):format(workWidth), 7);
-				courseplay:changeWorkWidth(vehicle, nil, workWidth, noDraw);
-				return;
+				shouldBWorkWidth = workWidth
+				--courseplay:changeWorkWidth(vehicle, nil, workWidth, noDraw);
+			else
+				local left, right = courseplay:getCuttingAreaValuesX(implement.object);
+				if left and right then
+					implL = max(implL, left);
+					implR = min(implR, right);
+				end;
+				courseplay:debug(('\t-> implL=%s, implR=%s'):format(tostring(implL), tostring(implR)), 7);
 			end;
-
-			local left, right = courseplay:getCuttingAreaValuesX(implement.object);
-			if left and right then
-				implL = max(implL, left);
-				implR = min(implR, right);
-			end;
-			courseplay:debug(('\t-> implL=%s, implR=%s'):format(tostring(implL), tostring(implR)), 7);
+			
 			if tool.attachedImplements then
 				for j,subImplement in pairs(tool.attachedImplements) do
 					local tool = subImplement.object;
 					if vehicle.cp.mode == 9 and tool.cp.hasSpecializationShovel then   
 						workWidth = tool.sizeWidth
 					end
+					local workWidth = courseplay:getSpecialWorkWidth(tool);
 					if workWidth then
 						courseplay:debug(('\tSpecial workWidth found in attachedImplement: %.1fm'):format(workWidth), 7);
-						courseplay:changeWorkWidth(vehicle, nil, workWidth, noDraw);
-						return;
+						shouldBWorkWidth = max(shouldBWorkWidth,workWidth)
+						--courseplay:changeWorkWidth(vehicle, nil, workWidth, noDraw);
+					else			
+						local subLeft, subRight = courseplay:getCuttingAreaValuesX(subImplement.object);
+						if subLeft and subRight then
+							implL = max(implL, subLeft);
+							implR = min(implR, subRight);
+						end;
+						courseplay:debug(('\t-> implL=%s, implR=%s'):format(j, tostring(implL), tostring(implR)), 7);
 					end;
-				
-					local subLeft, subRight = courseplay:getCuttingAreaValuesX(subImplement.object);
-					if subLeft and subRight then
-						implL = max(implL, subLeft);
-						implR = min(implR, subRight);
-					end;
-					courseplay:debug(('\t-> implL=%s, implR=%s'):format(j, tostring(implL), tostring(implR)), 7);
 				end;
 			end;
 		end;
 	end;
+	
 	if implL == -9999 or implR == 9999 then
 		implL, implR = nil, nil;
 		courseplay:debug('\timplL=nil, implR=nil', 7);
@@ -293,9 +327,17 @@ function courseplay:calculateWorkWidth(vehicle, noDraw)
 	end;
 
 	local workWidth = l - r;
-	courseplay:debug(('\tl=%s, r=%s -> workWidth=l-r=%s'):format(tostring(l), tostring(r), tostring(workWidth)), 7);
+	
+	shouldBWorkWidth = max(shouldBWorkWidth,workWidth)
 
-	courseplay:changeWorkWidth(vehicle, nil, workWidth, noDraw);
+	if shouldBWorkWidth == 0 then
+		shouldBWorkWidth = 3;
+	end;
+	
+	courseplay:debug(('\tl=%s, r=%s -> workWidth=l-r=%s'):format(tostring(l), tostring(r), tostring(shouldBWorkWidth)), 7);
+
+	courseplay:changeWorkWidth(vehicle, nil, shouldBWorkWidth, noDraw);
+
 end;
 
 function courseplay:getCuttingAreaValuesX(object)
@@ -361,7 +403,12 @@ function courseplay:changeWorkWidth(vehicle, changeBy, force, noDraw)
 		--print("is set by calculate button")
 	end
 	if force then
-		vehicle.cp.workWidth = max(courseplay:round(abs(force), 1), 0.1);
+		if force == 0 then
+			return
+		end
+		local newWidth = max(courseplay:round(abs(force), 1), 0.1)
+		--vehicle.cp.workWidth = min(vehicle.cp.workWidth,newWidth); --TODO: check what is better:the smallest or the widest work width to consider
+		vehicle.cp.workWidth = newWidth
 	else
 		if vehicle.cp.workWidth + changeBy > 10 then
 			if abs(changeBy) == 0.1 and not (Input.keyPressedState[Input.KEY_lalt]) then -- pressing left Alt key enables to have small 0.1 steps even over 10.0 
@@ -383,6 +430,8 @@ function courseplay:changeWorkWidth(vehicle, changeBy, force, noDraw)
 	if not noDraw then
 		courseplay:setCustomTimer(vehicle, 'showWorkWidth', 2);
 	end;
+	courseplay.hud:setReloadPageOrder(vehicle, vehicle.cp.hud.currentPage, true);
+	
 end;
 
 function courseplay:toggleShowVisualWaypointsStartEnd(vehicle, force, visibilityUpdate)
@@ -517,6 +566,10 @@ function courseplay:toggleRealisticDriving(vehicle)
 	vehicle.cp.realisticDriving = not vehicle.cp.realisticDriving;
 end;
 
+function courseplay:togglePloughFieldEdge(self)
+	self.cp.ploughFieldEdge = not self.cp.ploughFieldEdge;
+end;
+
 function courseplay:toggleSearchCombineMode(vehicle)
 	vehicle.cp.searchCombineAutomatically = not vehicle.cp.searchCombineAutomatically;
 	if not vehicle.cp.searchCombineAutomatically then
@@ -639,7 +692,7 @@ function courseplay:copyCourse(vehicle)
 		vehicle:setCpVar('canDrive',true,courseplay.isClient);
 		vehicle.cp.abortWork = nil;
 
-		vehicle.cp.curTarget.x, vehicle.cp.curTarget.y, vehicle.cp.curTarget.z = nil, nil, nil;
+		vehicle.cp.curTarget.x, vehicle.cp.curTarget.y, vehicle.cp.curTarget.z ,vehicle.cp.curTarget.rev = nil, nil, nil, nil;
 		vehicle.cp.nextTargets = {};
 		if vehicle.cp.activeCombine ~= nil then
 			courseplay:unregisterFromCombine(vehicle, vehicle.cp.activeCombine);
@@ -988,19 +1041,30 @@ end;
 --Course generation
 function courseplay:switchStartingCorner(vehicle)
 	vehicle.cp.startingCorner = vehicle.cp.startingCorner + 1;
-	if vehicle.cp.startingCorner > 4 then
+	local maxNumber = 5
+	if vehicle.cp.generationPosition.hasSavedPosition then
+		maxNumber = 6
+	end
+	if vehicle.cp.startingCorner > maxNumber then
 		vehicle.cp.startingCorner = 1;
 	end;
 	vehicle.cp.hasStartingCorner = true;
-	vehicle.cp.hasStartingDirection = false;
-	vehicle.cp.startingDirection = 0;
+  if vehicle.cp.startingCorner >= 5 then
+    -- starting direction is always auto when starting corner is vehicle location
+    vehicle.cp.hasStartingDirection = true;
+    vehicle.cp.startingDirection = 5;
+    courseplay:changeStartingDirection( vehicle )
+  else
+    vehicle.cp.hasStartingDirection = false;
+    vehicle.cp.startingDirection = 0;
+  end
 
 	courseplay:validateCourseGenerationData(vehicle);
 end;
 
 function courseplay:changeStartingDirection(vehicle)
-	-- corners: 1 = SW, 2 = NW, 3 = NE, 4 = SE
-	-- directions: 1 = North, 2 = East, 3 = South, 4 = West
+	-- corners: 1 = SW, 2 = NW, 3 = NE, 4 = SE, 5 = Vehicle location
+	-- directions: 1 = North, 2 = East, 3 = South, 4 = West, 5 = auto generated
 	local clockwise = true
 	local validDirections = {};
 	if vehicle.cp.hasStartingCorner then
@@ -1016,17 +1080,27 @@ function courseplay:changeStartingDirection(vehicle)
 		elseif vehicle.cp.startingCorner == 4 then --SE
 			validDirections[1] = 4; --W
 			validDirections[2] = 1; --N
+		elseif vehicle.cp.startingCorner == 5 then -- Vehicle location
+      -- everything is auto generated, headland starts at vehicle location
+			validDirections[1] = 5; -- auto generated
+      vehicle.cp.startingDirection = 5
+      -- auto directon works only with headland for now
+      if vehicle.cp.headland.numLanes == 0 then
+        vehicle.cp.headland.numLanes = 1
+      end
 		end;
 
-		--would be easier with i=i+1, but more stored variables would be needed
-		if vehicle.cp.startingDirection == 0 then
-			vehicle.cp.startingDirection = validDirections[1];
-		elseif vehicle.cp.startingDirection == validDirections[1] then
-			vehicle.cp.startingDirection = validDirections[2];
-			clockwise = false
-		elseif vehicle.cp.startingDirection == validDirections[2] then
-			vehicle.cp.startingDirection = validDirections[1];
-		end;
+    if vehicle.cp.startingDirection < 5 then
+      --would be easier with i=i+1, but more stored variables would be needed
+      if vehicle.cp.startingDirection == 0 then
+        vehicle.cp.startingDirection = validDirections[1];
+      elseif vehicle.cp.startingDirection == validDirections[1] then
+        vehicle.cp.startingDirection = validDirections[2];
+        clockwise = false
+      elseif vehicle.cp.startingDirection == validDirections[2] then
+        vehicle.cp.startingDirection = validDirections[1];
+      end;
+    end;
 		vehicle.cp.hasStartingDirection = true;
 	end;
 	if vehicle.cp.headland.userDirClockwise ~= clockwise then
@@ -1041,6 +1115,10 @@ end;
 
 function courseplay:changeHeadlandNumLanes(vehicle, changeBy)
 	vehicle.cp.headland.numLanes = Utils.clamp(vehicle.cp.headland.numLanes + changeBy, 0, vehicle.cp.headland.maxNumLanes);
+  -- force headland for auto direction 
+  if vehicle.cp.headland.numLanes == 0 and vehicle.cp.startingCorner == 5 then
+    vehicle.cp.headland.numLanes = 1
+  end
 	courseplay:validateCourseGenerationData(vehicle);
 end;
 
@@ -1467,8 +1545,9 @@ function courseplay:setCurrentTargetFromList(vehicle, index)
 	end;
 end;
 
-function courseplay:addNewTargetVector(vehicle, x, z, trailer,node)
+function courseplay:addNewTargetVector(vehicle, x, z, trailer,node,rev)
 	local tx, ty, tz = 0,0,0
+	local pointReverse = false
 	if node ~= nil then
 		tx, ty, tz = localToWorld(node, x, 0, z);
 	elseif trailer ~= nil then
@@ -1476,11 +1555,45 @@ function courseplay:addNewTargetVector(vehicle, x, z, trailer,node)
 	else
 		tx, ty, tz = localToWorld(vehicle.cp.DirectionNode or vehicle.rootNode, x, 0, z);
 	end
-	table.insert(vehicle.cp.nextTargets, { x = tx, y = ty, z = tz });
+	if rev then
+		pointReverse = true
+	end
+	table.insert(vehicle.cp.nextTargets, { x = tx, y = ty, z = tz,rev = pointReverse });
 end;
 
 function courseplay:changeRefillUntilPct(vehicle, changeBy)
 	vehicle.cp.refillUntilPct = Utils.clamp(vehicle.cp.refillUntilPct + changeBy, 1, 100);
+end;
+
+function courseplay:changeLastValidTipDistance(vehicle, changeBy)
+	vehicle.cp.lastValidTipDistance = Utils.clamp(vehicle.cp.lastValidTipDistance + changeBy, -500, 0);
+end;
+
+
+function courseplay:changeRunNumber(vehicle, changeBy)
+ 	vehicle.cp.runNumber = Utils.clamp(vehicle.cp.runNumber + changeBy, 1, 11);
+end;
+
+function courseplay:changeRunCounter(vehicle, bool)
+	courseplay:debug(string.format('%s: bool = %s vehicle.cp.runCounterBool = %s (called from %s)', nameNum(vehicle), tostring(bool), tostring(vehicle.cp.runCounterBool), courseplay.utils:getFnCallPath(2)), 12);
+	if vehicle.cp.runCounterBool ~= bool then
+		if bool == true and not courseplay:waypointsHaveAttr(vehicle, vehicle.cp.waypointIndex, -3, 3, 'wait', true, false) then
+			if vehicle.cp.runNumber < 11 then
+				vehicle.cp.runCounter = vehicle.cp.runCounter + 1
+				courseplay.hud:setReloadPageOrder(vehicle, 1, true)
+				courseplay:debug(string.format('%s: incremnting runCounter = %d runNumber = %d', nameNum(vehicle), vehicle.cp.runCounter, vehicle.cp.runNumber), 12);
+			elseif vehicle.cp.runNumber == 11 then
+				vehicle.cp.runCounter = 1 -- restets the number of runs if set to unlimted on tipper load
+				courseplay:debug(string.format('%s: runNumber is set to Unlimted reset run counter runCounter = %d runNumber = %d', nameNum(vehicle), vehicle.cp.runCounter, vehicle.cp.runNumber), 12);
+			end;
+			vehicle.cp.runReset = false;
+			vehicle.cp.runCounterBool = bool
+			courseplay:debug(string.format('%s: runCounterBool is set to %s', nameNum(vehicle), tostring(vehicle.cp.runCounterBool)), 12);
+		elseif bool == false then
+			vehicle.cp.runCounterBool = bool
+			courseplay:debug(string.format('%s: runCounterBool is set to %s', nameNum(vehicle), tostring(vehicle.cp.runCounterBool)), 12);
+		end;
+	end;
 end;
 
 function courseplay:toggleSucHud(vehicle)
@@ -1609,8 +1722,8 @@ function courseplay:toggleIngameMapIconShowText()
 	end;
 end;
 
-function courseplay:toggleAlwaysUseFourWD(vehicle)
-	vehicle.cp.driveControl.alwaysUseFourWD = not vehicle.cp.driveControl.alwaysUseFourWD;
+function courseplay:changeDriveControlMode(vehicle, changeBy)
+	vehicle.cp.driveControl.mode = Utils.clamp(vehicle.cp.driveControl.mode + changeBy, vehicle.cp.driveControl.OFF, vehicle.cp.driveControl.AWD_BOTH_DIFF);
 end;
 
 function courseplay:getAndSetFixedWorldPosition(object, recursive)
@@ -1656,7 +1769,7 @@ function courseplay:setAttachedCombine(vehicle)
 end;
 
 function courseplay:getIsEngineReady(vehicle)
-	return vehicle.isMotorStarted and (vehicle.motorStartTime == nil or vehicle.motorStartTime < g_currentMission.time);
+	return (vehicle.isMotorStarted or vehicle.cp.saveFuel) and (vehicle.motorStartTime == nil or vehicle.motorStartTime < g_currentMission.time);
 end;
 
 ----------------------------------------------------------------------------------------------------

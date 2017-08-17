@@ -31,9 +31,15 @@ function courseplay:turn(vehicle, dt)
 	local reverseWPChangeDistance			= 3;
 	local reverseWPChangeDistanceWithTool	= vehicle.isReverseDriving and 3 or 5;
 	local isHarvester						= Utils.getNoNil(courseplay:isCombine(vehicle) or courseplay:isChopper(vehicle) or courseplay:isHarvesterSteerable(vehicle), false);
-	local allowedAngle						= isHarvester and 15 or 3; -- Used for changing direction if the vehicle or vehicle and tool angle difference are below that.
+	local allowedAngle						= vehicle.cp.changeDirAngle or isHarvester and 15 or 3; -- Used for changing direction if the vehicle or vehicle and tool angle difference are below that.
 	if vehicle.cp.noStopOnEdge then
 		turnOutTimer = 0;
+	end;
+
+	--- This is in case we use manually recorded fieldswork course and not generated.
+	if not vehicle.cp.courseWorkWidth then
+		courseplay:calculateWorkWidth(vehicle, true);
+		vehicle.cp.courseWorkWidth = vehicle.cp.workWidth;
 	end;
 
 	--- Make sure front and back markers is calculated.
@@ -44,19 +50,32 @@ function courseplay:turn(vehicle, dt)
 			courseplay:setMarkers(vehicle, workTool);
 		end;
 		vehicle.cp.haveCheckedMarkersThisTurn = true;
+		if vehicle.cp.courseWorkWidth and vehicle.cp.courseWorkWidth > 0 and vehicle.cp.courseNumHeadlandLanes and vehicle.cp.courseNumHeadlandLanes > 0 then
+			-- First headland is only half the work width
+			vehicle.cp.headlandHeight = vehicle.cp.courseWorkWidth / 2;
+			-- Add extra workwidth for each extra headland
+			if vehicle.cp.courseNumHeadlandLanes - 1 > 0 then
+				vehicle.cp.headlandHeight = vehicle.cp.headlandHeight + ((vehicle.cp.courseNumHeadlandLanes - 1) * vehicle.cp.courseWorkWidth);
+			end;
+		else
+			vehicle.cp.headlandHeight = 0;
+		end; 
+		local frontMarker2 = Utils.getNoNil(vehicle.cp.aiFrontMarker, -3);
+		local backMarker2 = Utils.getNoNil(vehicle.cp.backMarkerOffset,0);
+		if vehicle.cp.hasPlough and (vehicle.cp.ploughFieldEdge or math.abs(frontMarker2 - backMarker2) < vehicle.cp.headlandHeight) then
+			vehicle.cp.aiFrontMarker = backMarker2;
+			vehicle.cp.backMarkerOffset = frontMarker2
+		end
 	end;
 
 	--- Get front and back markers
 	local frontMarker = Utils.getNoNil(vehicle.cp.aiFrontMarker, -3);
 	local backMarker = Utils.getNoNil(vehicle.cp.backMarkerOffset,0);
 
+	
+
 	local vehicleX, vehicleY, vehicleZ = getWorldTranslation(realDirectionNode);
 
-	--- This is in case we use manually recorded fieldswork course and not generated.
-	if not vehicle.cp.courseWorkWidth then
-		courseplay:calculateWorkWidth(vehicle, true);
-		vehicle.cp.courseWorkWidth = vehicle.cp.workWidth;
-	end;
 
 	----------------------------------------------------------
 	-- Debug prints
@@ -134,7 +153,7 @@ function courseplay:turn(vehicle, dt)
 			turnInfo.reverseWPChangeDistance 		= reverseWPChangeDistance;
 			turnInfo.direction 						= -1;
 			turnInfo.haveHeadlands 					= courseplay:haveHeadlands(vehicle);
-			turnInfo.headlandHeight 				= 0;
+			turnInfo.headlandHeight 				= vehicle.cp.headlandHeight;
 			turnInfo.numLanes ,turnInfo.onLaneNum 	= courseplay:getLaneInfo(vehicle);
 			turnInfo.turnOnField 					= vehicle.cp.turnOnField;
 			turnInfo.reverseOffset 					= 0;
@@ -209,14 +228,17 @@ function courseplay:turn(vehicle, dt)
 			turnInfo.targetDeltaZ = turnInfo.targetDeltaZ - turnInfo.zOffset;
 
 			--- Get headland height
-			if vehicle.cp.courseWorkWidth and vehicle.cp.courseWorkWidth > 0 and vehicle.cp.courseNumHeadlandLanes and vehicle.cp.courseNumHeadlandLanes > 0 then
-				-- First headland is only half the work width
-				turnInfo.headlandHeight = vehicle.cp.courseWorkWidth / 2;
-				-- Add extra workwidth for each extra headland
-				if vehicle.cp.courseNumHeadlandLanes - 1 > 0 then
-					turnInfo.headlandHeight = turnInfo.headlandHeight + ((vehicle.cp.courseNumHeadlandLanes - 1) * vehicle.cp.courseWorkWidth);
-				end;
-			end;
+			-- if vehicle.cp.courseWorkWidth and vehicle.cp.courseWorkWidth > 0 and vehicle.cp.courseNumHeadlandLanes and vehicle.cp.courseNumHeadlandLanes > 0 then
+			-- 	-- First headland is only half the work width
+			-- 	turnInfo.headlandHeight = vehicle.cp.courseWorkWidth / 2;
+			-- 	-- Add extra workwidth for each extra headland
+			-- 	if vehicle.cp.courseNumHeadlandLanes - 1 > 0 then
+			-- 		turnInfo.headlandHeight = turnInfo.headlandHeight + ((vehicle.cp.courseNumHeadlandLanes - 1) * vehicle.cp.courseWorkWidth);
+			-- 	end;
+			-- end; 
+			
+
+			
 
 			--- Calculate reverseOffset in case we need to reverse
 			local offset = turnInfo.zOffset;
@@ -539,13 +561,14 @@ function courseplay:turn(vehicle, dt)
 	--Set the driving direction
 	----------------------------------------------------------
 	if newTarget then
+		local posX, posZ = newTarget.revPosX or newTarget.posX, newTarget.revPosZ or newTarget.posZ;
 		local directionNode = vehicle.aiVehicleDirectionNode or vehicle.cp.DirectionNode;
-		dtpX,_,dtpZ = worldToLocal(directionNode, newTarget.posX, vehicleY, newTarget.posZ);
+		dtpX,_,dtpZ = worldToLocal(directionNode, posX, vehicleY, posZ);
 		if courseplay:isWheelloader(vehicle) then
 			dtpZ = dtpZ * 0.5; -- wheel loaders need to turn more
 		end;
 
-		lx, lz = AIVehicleUtil.getDriveDirection(vehicle.cp.DirectionNode, newTarget.posX, vehicleY, newTarget.posZ);
+		lx, lz = AIVehicleUtil.getDriveDirection(vehicle.cp.DirectionNode, posX, vehicleY, posZ);
 		if newTarget.turnReverse then
 			lx, lz, moveForwards = courseplay:goReverse(vehicle,lx,lz);
 		end;
@@ -879,10 +902,18 @@ function courseplay:generateTurnTypeQuestionmarkTurn(vehicle, turnInfo)
 	courseplay:debug(("%s:(Turn) centerOffset=%s, sideB=%s, sideC=%s, centerHeight=%s"):format(nameNum(vehicle), tostring(centerOffset), tostring(sideB), tostring(sideC), tostring(centerHeight)), 14);
 
 	--- Check if we can turn on the headlands
-	if (-turnInfo.zOffset + turnInfo.turnRadius + turnInfo.halfVehicleWidth) < turnInfo.headlandHeight then
+	local spaceNeeded = 0;
+	if vehicle.cp.oppositeTurnMode then
+		spaceNeeded = -turnInfo.zOffset + centerHeight + turnInfo.turnRadius + turnInfo.halfVehicleWidth;
+	else
+		spaceNeeded = -turnInfo.zOffset + turnInfo.turnRadius + turnInfo.halfVehicleWidth;
+	end;
+
+	if spaceNeeded < turnInfo.headlandHeight then
 		canTurnOnHeadland = true;
 	end;
-	courseplay:debug(("%s:(Turn) canTurnOnHeadland=%s, headlandHeight=%.2fm, spaceNeeded=%.2fm"):format(nameNum(vehicle), tostring(canTurnOnHeadland), turnInfo.headlandHeight, (-turnInfo.zOffset + turnInfo.turnRadius + turnInfo.halfVehicleWidth)), 14);
+
+	courseplay:debug(("%s:(Turn) canTurnOnHeadland=%s, headlandHeight=%.2fm, spaceNeeded=%.2fm"):format(nameNum(vehicle), tostring(canTurnOnHeadland), turnInfo.headlandHeight, spaceNeeded), 14);
 
 	--- Target is behind of us
 	local targetOffsetZ = 0;
@@ -909,15 +940,15 @@ function courseplay:generateTurnTypeQuestionmarkTurn(vehicle, turnInfo)
 	--- Get the numLanes and onLaneNum, so we can switch to the right turn maneuver.
 	local width = vehicle.cp.courseWorkWidth * 0.5;
 	local doNormalTurn = true;
-	local spaceNeeded = turnInfo.turnDiameter + turnInfo.halfVehicleWidth - vehicle.cp.courseWorkWidth;
+	local widthNeeded = turnInfo.turnDiameter + turnInfo.halfVehicleWidth - vehicle.cp.courseWorkWidth;
 	if vehicle.cp.oppositeTurnMode then
 		width = turnInfo.onLaneNum * vehicle.cp.courseWorkWidth - (vehicle.cp.courseWorkWidth * 0.5);
-		doNormalTurn = (turnInfo.haveHeadlands and spaceNeeded > (width + turnInfo.headlandHeight) or spaceNeeded > width);
-		courseplay:debug(("%s:(Turn) doNormalTurn=%s, haveHeadlands=%s, %.1fm > %.1fm"):format(nameNum(vehicle), tostring(doNormalTurn), tostring(turnInfo.haveHeadlands), spaceNeeded, (turnInfo.haveHeadlands and (width + turnInfo.headlandHeight) or width)), 14);
+		doNormalTurn = (turnInfo.haveHeadlands and widthNeeded > (width + turnInfo.headlandHeight) or widthNeeded > width);
+		courseplay:debug(("%s:(Turn) doNormalTurn=%s, haveHeadlands=%s, %.1fm > %.1fm"):format(nameNum(vehicle), tostring(doNormalTurn), tostring(turnInfo.haveHeadlands), widthNeeded, (turnInfo.haveHeadlands and (width + turnInfo.headlandHeight) or width)), 14);
 	else
 		width = (turnInfo.numLanes - turnInfo.onLaneNum) * vehicle.cp.courseWorkWidth - (vehicle.cp.courseWorkWidth * 0.5);
-		doNormalTurn = (turnInfo.haveHeadlands and spaceNeeded < (width + turnInfo.headlandHeight) or spaceNeeded < width);
-		courseplay:debug(("%s:(Turn) doNormalTurn=%s, haveHeadlands=%s, %.1fm < %.1fm"):format(nameNum(vehicle), tostring(doNormalTurn), tostring(turnInfo.haveHeadlands), spaceNeeded, (turnInfo.haveHeadlands and (width + turnInfo.headlandHeight) or width)), 14);
+		doNormalTurn = (turnInfo.haveHeadlands and widthNeeded < (width + turnInfo.headlandHeight) or widthNeeded < width);
+		courseplay:debug(("%s:(Turn) doNormalTurn=%s, haveHeadlands=%s, %.1fm < %.1fm"):format(nameNum(vehicle), tostring(doNormalTurn), tostring(turnInfo.haveHeadlands), widthNeeded, (turnInfo.haveHeadlands and (width + turnInfo.headlandHeight) or width)), 14);
 	end;
 
 	--- Do the oposite direction turns for bale loaders, so we avoide bales in the normal turn direction
@@ -963,8 +994,8 @@ function courseplay:generateTurnTypeQuestionmarkTurn(vehicle, turnInfo)
 
 		--- If we have headlands, then see if we can skip the reversing back part.
 		if turnInfo.haveHeadlands and newZOffset < turnInfo.directionNodeToTurnNodeLength * 0.5 then
-			posX, _, posZ = localToWorld(turnInfo.targetNode, 0, 0, turnInfo.directionNodeToTurnNodeLength + turnInfo.wpChangeDistance + 6);
-			courseplay:addTurnTarget(vehicle, posX, posZ, true);
+			toPoint.x, _, toPoint.z = localToWorld(turnInfo.targetNode, 0, 0, turnInfo.directionNodeToTurnNodeLength + turnInfo.wpChangeDistance + 6);
+			courseplay:generateTurnStraitPoints(vehicle, stopDir, toPoint, false, true);
 		else
 			--- Add extra length to the directionNodeToTurnNodeLength if there is an pivoted tool behind the tractor.
 			-- This is to prevent too sharp turning when reversing to the first reverse point.
@@ -1053,8 +1084,8 @@ function courseplay:generateTurnTypeQuestionmarkTurn(vehicle, turnInfo)
 
 		--- If the last turn circle ends 3m behind the new lane start, we dont need to reverse back.
 		if fromDistance < -3 then
-			posX, _, posZ = localToWorld(turnInfo.targetNode, 0, 0, turnInfo.directionNodeToTurnNodeLength + turnInfo.wpChangeDistance + 6);
-			courseplay:addTurnTarget(vehicle, posX, posZ, true);
+			toPoint.x, _, toPoint.z = localToWorld(turnInfo.targetNode, 0, 0, turnInfo.directionNodeToTurnNodeLength + turnInfo.wpChangeDistance + 6);
+			courseplay:generateTurnStraitPoints(vehicle, stopDir, toPoint, false, true);
 
 		--- The last turn circle is less than 3m behind the lane start, so we have to reverse back.
 		else
@@ -1119,15 +1150,15 @@ function courseplay:generateTurnTypeForward3PointTurn(vehicle, turnInfo)
 		--- Get the numLanes and onLaneNum, so we can switch to the right turn maneuver.
 		local width = vehicle.cp.courseWorkWidth * 0.5;
 		local doNormalTurn = true;
-		local spaceNeeded = turnInfo.turnDiameter + turnInfo.halfVehicleWidth - vehicle.cp.courseWorkWidth;
+		local widthNeeded = turnInfo.turnDiameter + turnInfo.halfVehicleWidth - vehicle.cp.courseWorkWidth;
 		if vehicle.cp.oppositeTurnMode then
 			width = turnInfo.onLaneNum * vehicle.cp.courseWorkWidth - (vehicle.cp.courseWorkWidth * 0.5);
-			doNormalTurn = spaceNeeded > width;
-			courseplay:debug(("%s:(Turn) doNormalTurn=%s, %.1fm > %.1fm"):format(nameNum(vehicle), tostring(doNormalTurn), spaceNeeded, width), 14);
+			doNormalTurn = widthNeeded > width;
+			courseplay:debug(("%s:(Turn) doNormalTurn=%s, %.1fm > %.1fm"):format(nameNum(vehicle), tostring(doNormalTurn), widthNeeded, width), 14);
 		else
 			width = (turnInfo.numLanes - turnInfo.onLaneNum) * vehicle.cp.courseWorkWidth - (vehicle.cp.courseWorkWidth * 0.5);
-			doNormalTurn = spaceNeeded < width;
-			courseplay:debug(("%s:(Turn) doNormalTurn=%s, %.1fm < %.1fm"):format(nameNum(vehicle), tostring(doNormalTurn), spaceNeeded, width), 14);
+			doNormalTurn = widthNeeded < width;
+			courseplay:debug(("%s:(Turn) doNormalTurn=%s, %.1fm < %.1fm"):format(nameNum(vehicle), tostring(doNormalTurn), widthNeeded, width), 14);
 		end;
 
 		if not doNormalTurn then
@@ -1243,15 +1274,15 @@ function courseplay:generateTurnTypeReverse3PointTurn(vehicle, turnInfo)
 	--- Get the numLanes and onLaneNum, so we can switch to the right turn maneuver.
 	local width = vehicle.cp.courseWorkWidth * 0.5;
 	local doNormalTurn = true;
-	local spaceNeeded = turnInfo.turnDiameter + turnInfo.halfVehicleWidth - vehicle.cp.courseWorkWidth;
+	local widthNeeded = turnInfo.turnDiameter + turnInfo.halfVehicleWidth - vehicle.cp.courseWorkWidth;
 	if vehicle.cp.oppositeTurnMode then
 		width = turnInfo.onLaneNum * vehicle.cp.courseWorkWidth - (vehicle.cp.courseWorkWidth * 0.5);
-		doNormalTurn = spaceNeeded > width;
-		courseplay:debug(("%s:(Turn) doNormalTurn=%s, %.1fm > %.1fm"):format(nameNum(vehicle), tostring(doNormalTurn), spaceNeeded, width), 14);
+		doNormalTurn = widthNeeded > width;
+		courseplay:debug(("%s:(Turn) doNormalTurn=%s, %.1fm > %.1fm"):format(nameNum(vehicle), tostring(doNormalTurn), widthNeeded, width), 14);
 	else
 		width = (turnInfo.numLanes - turnInfo.onLaneNum) * vehicle.cp.courseWorkWidth - (vehicle.cp.courseWorkWidth * 0.5);
-		doNormalTurn = spaceNeeded < width;
-		courseplay:debug(("%s:(Turn) doNormalTurn=%s, %.1fm < %.1fm"):format(nameNum(vehicle), tostring(doNormalTurn), spaceNeeded, width), 14);
+		doNormalTurn = widthNeeded < width;
+		courseplay:debug(("%s:(Turn) doNormalTurn=%s, %.1fm < %.1fm"):format(nameNum(vehicle), tostring(doNormalTurn), widthNeeded, width), 14);
 	end;
 
 	if not doNormalTurn then
@@ -1518,23 +1549,21 @@ function courseplay:lowerImplements(self, moveDown, workToolonOff)
 					--courseplay:handleSpecialTools(self,workTool,unfold,lower,turnOn,allowedToDrive,cover,unload)
 		specialTool = courseplay:handleSpecialTools(self,workTool,true,moveDown,workToolonOff,nil,nil,nil);
 		
-		if not specialTool and workTool.setPickupState ~= nil then
-			if workTool.isPickupLowered ~= nil and workTool.isPickupLowered ~= moveDown then
-				workTool:setPickupState(moveDown, false);
+		if not specialTool then
+			if workTool.setPickupState ~= nil then
+				if workTool.isPickupLowered ~= nil and workTool.isPickupLowered ~= moveDown then
+					workTool:setPickupState(moveDown, false);
+				end;
 			end;
-		end;
-		if moveDown then
-			if workTool.aiLower ~= nil and not workTool:isLowered() then
-				workTool:aiLower();
-			end
-		elseif workTool.aiRaise ~= nil and workTool:isLowered() then
-				workTool:aiRaise()
-		end
-
-	end;
-	if not specialTool then
-		if self.cp.mode == 4 then
-			for _,workTool in pairs(self.cp.workTools) do								 --vvTODO (Tom) why is this here vv?
+			if moveDown then
+				if workTool.aiLower ~= nil and not workTool:isLowered() then
+					workTool:aiLower();
+				end
+			elseif workTool.aiRaise ~= nil and workTool:isLowered() then
+					workTool:aiRaise()
+			end;		
+			if self.cp.mode == 4 then
+																						 --vvTODO (Tom) why is this here vv?
 				if workTool.setIsTurnedOn ~= nil and not courseplay:isFolding(workTool) and (true or workTool ~= self) and workTool.turnOnVehicle.isTurnedOn ~= workToolonOff then
 					workTool:setIsTurnedOn(workToolonOff, false);                          -- disabled for Pantera
 				end;

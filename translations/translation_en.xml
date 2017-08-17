@@ -6,6 +6,8 @@
 		<text name="COURSEPLAY_UNLOADING_DRIVER_START" 					 text="Start driver" />
 		<text name="COURSEPLAY_UNLOADING_DRIVER_STOP" 					 text="Stop driver" />
 		<text name="COURSEPLAY_STOP_AT_LAST_POINT" 						 text="Stop at last point or at next trigger" />
+		<text name="COURSEPLAY_NUMBER_OF_RUNS" 							 text="Number of runs to perform" />
+ 		<text name="COURSEPLAY_UNLIMITED" 								 text="Unlimited" /> 
 		<text name="COURSEPLAY_UNLOADING_SIDE" 							 text="Driver side" />
 		<text name="COURSEPLAY_UNLOADING_SIDE_NONE" 					 text="Automatic" />
 		<text name="COURSEPLAY_LEFT" 									 text="left" />
@@ -61,15 +63,18 @@
 		<text name="COURSEPLAY_REACHED_WAITING_POINT" 					 text="has reached waiting point" />
 		<text name="COURSEPLAY_REACHED_END_POINT" 						 text="has reached trigger/end point" />
 		<text name="COURSEPLAY_REACHED_END_POINT_MODE_1" 				 text="has finished grain transport." />
+		<text name="COURSEPLAY_REACHED_END_POINT_MODE_8" 				 text="has finished liquid transport." />
 		<text name="COURSEPLAY_WORK_END" 								 text="has finished work." />
 		<text name="COURSEPLAY_NEEDS_UNLOADING" 						 text=": work tool needs to be unloaded." />
 		<text name="COURSEPLAY_NEEDS_REFILLING" 						 text=": work tool needs to be refilled." />
 		<text name="COURSEPLAY_UNLOADING_BALES" 						 text="unloading bales." />
 		<text name="COURSEPLAY_IS_IN_TRAFFIC" 							 text="is in traffic." />
 		<text name="COURSEPLAY_TIPTRIGGER_REACHED" 						 text="tip trigger reached" />
+		<text name="COURSEPLAY_LAST_VAILD_TIP_DIST" 					 text="Dist 2 unload point" />   <!-- TODO: find a better wording !!  its the distance to the unload point,where to tip while making heaps by reverse tipping -->
 		<text name="COURSEPLAY_LOADING_AMOUNT" 							 text="Loading: %d of %d" />
 		<text name="COURSEPLAY_WAYPOINT_MODE" 							 text="Show waypoints" />
 		<text name="COURSEPLAY_PATHFINDING" 							 text="Pathfinding" />
+		<text name="COURSEPLAY_PLOUGH_FIELD_EDGE" 						 text="Plough past field edge" />
 		<text name="COURSEPLAY_COMBINE_OFFSET_HORIZONTAL" 				 text="Side offset:" />
 		<text name="COURSEPLAY_START_AT" 								 text="Start at:" />
 		<text name="COURSEPLAY_TURN_ON_FIELD"					 		 text="Turn on field:" />
@@ -130,8 +135,11 @@
 		<text name="COURSEPLAY_SHOULD_BE_REFUELED" 						 text="should be refueled soon" />
 		<text name="COURSEPLAY_MUST_BE_REFUELED" 						 text="must be refueled" />
 		<text name="COURSEPLAY_IS_BEING_REFUELED" 						 text="is being refueled" />
+		<text name="COURSEPLAY_IS_BEING_WEIGHED" 						 text="is being weighed" />
 		<text name="COURSEPLAY_WAITING_POINTS_TOO_MANY" 				 text="Too many waiting points! Only %d allowed." />
 		<text name="COURSEPLAY_WAITING_POINTS_TOO_FEW" 					 text="Too few waiting points! %d needed." />
+		<text name="COURSEPLAY_UNLOADING_POINTS_TOO_MANY" 				 text="Too many unload points! Only %d allowed." />
+		<text name="COURSEPLAY_UNLOADING_POINTS_TOO_FEW"				 text="Too few unload points! %d needed." />
 		<text name="COURSEPLAY_WRONG_TRAILER" 							 text="wrong trailer for this mode" />
 		<text name="COURSEPLAY_WRONG_TOOL" 								 text="wrong tool for this mode" />
 		<text name="COURSEPLAY_MODE_NOT_SUPPORTED_FOR_VEHICLETYPE" 		 text="This vehicle type isn't supported in this mode." />
@@ -139,6 +147,8 @@
 		<text name="COURSEPLAY_LANE_OFFSET" 							 text="Lane offset" />
 		<text name="COURSEPLAY_TOOL_OFFSET_X" 							 text="Tool offset horizontal" />
 		<text name="COURSEPLAY_TOOL_OFFSET_Z" 							 text="Tool offset vertical" />
+		<text name="COURSEPLAY_LOAD_UNLOAD_OFFSET_X" 					 text="Load/Unload offset horizontal" />
+		<text name="COURSEPLAY_LOAD_UNLOAD_OFFSET_Z" 					 text="Load/Unload/Wait offset vertical" />
 		<text name="COURSEPLAY_FRONT" 									 text="front" />
 		<text name="COURSEPLAY_BACK" 									 text="back" />
 		<text name="COURSEPLAY_WORK_WIDTH" 								 text="Working width" />
@@ -146,17 +156,21 @@
 		<text name="COURSEPLAY_OPEN_HUD_MODE" 							 text="Open hud with:" />
 		<text name="COURSEPLAY_DEBUG_CHANNELS" 							 text="Debug channels" />
 		<text name="COURSEPLAY_PAGE_TITLE_COURSE_GENERATION" 			 text="Course generation" />
-		<text name="COURSEPLAY_STARTING_CORNER" 						 text="Starting corner" />
+    <text name="COURSEPLAY_STARTING_LOCATION" 						 text="Starting location" />  <!-- TO BE TRANSLATED -->
+    <text name="COURSEPLAY_ENDING_LOCATION" 						 text="Ending location" />      <!-- TO BE TRANSLATED -->
 		<text name="COURSEPLAY_STARTING_DIRECTION" 						 text="Starting direction" />
 		<text name="COURSEPLAY_RETURN_TO_FIRST_POINT" 					 text="Return to first point" />
 		<text name="COURSEPLAY_CORNER_1" 								 text="South-West" />
 		<text name="COURSEPLAY_CORNER_2" 								 text="North-West" />
 		<text name="COURSEPLAY_CORNER_3" 								 text="North-East" />
 		<text name="COURSEPLAY_CORNER_4" 								 text="South-East" />
+		<text name="COURSEPLAY_CORNER_5" 								 text="Current vehicle position" />
+		<text name="COURSEPLAY_CORNER_6" 								 text="Last used position" />
 		<text name="COURSEPLAY_DIRECTION_1" 							 text="North" />
 		<text name="COURSEPLAY_DIRECTION_2" 							 text="East" />
 		<text name="COURSEPLAY_DIRECTION_3" 							 text="South" />
 		<text name="COURSEPLAY_DIRECTION_4" 							 text="West" />
+		<text name="COURSEPLAY_DIRECTION_5" 							 text="Automatic" />
 		<text name="COURSEPLAY_HEADLAND" 								 text="Headland" />
 		<text name="COURSEPLAY_ACTIVATED" 								 text="activated" />
 		<text name="COURSEPLAY_NAME_ONLY" 								 text="Name only" />
@@ -238,7 +252,12 @@
 		<text name="COURSEPLAY_RECORDING_REVERSE_STOP" 					 text="Stop reverse driving" />
 		<text name="COURSEPLAY_RECORDING_ADD_SPLIT_POINTS"				 text="Add split points" />
 		<text name="COURSEPLAY_INGAMEMAP_ICONS_SHOWTEXT" 				 text="Map icons: display text" />
-		<text name="COURSEPLAY_ALWAYS_USE_4WD" 							 text="Always use 4WD" />
+		<text name="COURSEPLAY_DRIVECONTROL" 							 text="Drive Control Setting" />
+		<text name="COURSEPLAY_DRIVECONTROL_MODE_0" 					 text="Automatic" />
+		<text name="COURSEPLAY_DRIVECONTROL_MODE_1" 					 text="4WD Always" />
+		<text name="COURSEPLAY_DRIVECONTROL_MODE_2" 					 text="4WD Always &amp; Foward Diff on for Fieldwork" />
+		<text name="COURSEPLAY_DRIVECONTROL_MODE_3" 					 text="4WD Always &amp; Rear Diff on for Fieldwork" />
+		<text name="COURSEPLAY_DRIVECONTROL_MODE_4" 					 text="4WD Always &amp; Both Diffs on for Fieldwork" />
 		<text name="COURSEPLAY_YES_NO_FIELDSCAN" 						 text="Do you want the fields to be scanned automatically?" />
 		<text name="COURSEPLAY_YES_NO_WAGES" 							 text="Do you want your workers to earn wages (%s/hour)?" />
 		<text name="COURSEPLAY_SEEDUSAGECALCULATOR" 					 text="Seed usage calculator" />
@@ -288,6 +307,10 @@
 		<text name="COURSEPLAY_FUEL_SEARCH_FOR"						     text="Refill fuel at gas station" />
 		<text name="COURSEPLAY_FUEL_ALWAYS"						         text="always" />
 		<text name="COURSEPLAY_FUEL_BELOW_20PCT"						 text="below 20%" />
+		<text name="COURSEPLAY_FUELSAVEOPTION"						     text="fuel save option" />
+
+		<text name="COURSEPLAY_RELOAD_COURSE_LIST" 						 text="Reload course list" />
+		<text name="COURSEPLAY_COULDNT_GENERATE_COURSE" 			 text="Couldn't generate course. Try changing the settings or moving the vehicle."/>
 		
 	</texts>
 </l10n>

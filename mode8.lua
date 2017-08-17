@@ -1,4 +1,5 @@
 function courseplay:handleMode8(vehicle, load, unload, allowedToDrive, lx, lz, dt, tx, ty, tz, nx, ny, nz)
+	load = load and (not vehicle.cp.runReset or vehicle.cp.runCounter == 0)
 	courseplay:debug(('%s: handleMode8(load=%s, unload=%s, allowedToDrive=%s)'):format(nameNum(vehicle), tostring(load), tostring(unload), tostring(allowedToDrive)), 23);
 
 	if not vehicle.cp.workToolAttached then
@@ -43,13 +44,33 @@ function courseplay:handleMode8(vehicle, load, unload, allowedToDrive, lx, lz, d
 					vehicle.cp.lastMode8UnloadTriggerId = workTool.ReFillTrigger.manureTrigger;
 					courseplay:debug(('    %s: [ManureLager] setIsReFilling(true), triggerId=%d'):format(nameNum(workTool), vehicle.cp.lastMode8UnloadTriggerId), 23);
 
-				-- BGA extension V3.0
-				elseif workTool.fillTriggers[1] and workTool.fillTriggers[1].bga and workTool.fillTriggers[1].bga.fermenter_bioOK and workTool.fillTriggers[1].fillLevel < workTool.fillTriggers[1].capacity then
-					if not workTool.isFilling and workTool.fillLevel > 1 then
-						workTool:setIsFilling(true);
-						vehicle.cp.lastMode8UnloadTriggerId = workTool.fillTriggers[1].triggerId;
-						courseplay:debug(('    %s: [BGAextension] setIsFilling(true), triggerId=%d'):format(nameNum(workTool), vehicle.cp.lastMode8UnloadTriggerId), 23);
-					end;
+				--Liquid Manure Sell Triggers and BGA Extension Mod
+				elseif workTool.cp.isLiquidManureOverloader then
+					local triggers = g_currentMission.trailerTipTriggers[workTool]
+					if triggers ~= nil and triggers[1].acceptedFillTypes ~= nil and triggers[1].acceptedFillTypes[workTool.cp.fillType] and workTool.cp.fillType == FillUtil.fillTypeNameToInt.liquidManure then
+
+						local inBGAExtensionTrigger = triggers[1].bga and triggers[1].bga.fermenter_bioOK
+						local goForUnloading = workTool.cp.fillLevel > 0 and workTool.tipState == Trailer.TIPSTATE_CLOSED 
+
+						--Stop Unloading to BGA Extension
+						if inBGAExtensionTrigger and not goForUnloading and triggers[1].bga.BGA_Bonus >= triggers[1].bga.BGA_Bonus_Capacity*0.99 and (workTool.tipState == Trailer.TIPSTATE_OPENING or workTool.tipState == Trailer.TIPSTATE_OPEN) then
+							workTool:toggleTipState(triggers[1],1);	
+							courseplay:debug('                BGA Extension Mod is full resuming course', 23);
+
+						--Start Unloading to BGA Extension
+						elseif inBGAExtensionTrigger and triggers[1].bga.BGA_Bonus < triggers[1].bga.BGA_Bonus_Capacity*0.99  and goForUnloading then
+							workTool:toggleTipState(triggers[1],1);	
+							courseplay:debug('                Unloading at BGA Extension Mod', 23);
+
+						--Liquid Manure Sell Trigger
+						elseif goForUnloading and not inBGAExtensionTrigger then
+							workTool:toggleTipState(triggers[1],1);	
+							courseplay:debug('                Unloading at Liquid Manure Sell Trigger', 23);
+						end;
+					else 
+						--Should only happen if user tries to sell disgeate. TODO mabye? Add a messeage on screen saying unaccepted fill type
+						courseplay:debug('                Unsupported  filltype or trigger', 23);	
+					end		
 				end;
 			end;
 
@@ -57,9 +78,10 @@ function courseplay:handleMode8(vehicle, load, unload, allowedToDrive, lx, lz, d
 		elseif workTool.cp.isFuelTrailer then
 			-- do nothing
 
+		end
 
 		-- water trailers
-		elseif workTool.cp.isWaterTrailer then
+		if workTool.cp.isWaterTrailer then
 			-- check if workTool is in waterReceiver trigger
 			courseplay:debug(('    %s: unload'):format(nameNum(workTool)), 23);
 			if not workTool.cp.waterReceiverTrigger then
@@ -127,7 +149,7 @@ function courseplay:handleMode8(vehicle, load, unload, allowedToDrive, lx, lz, d
 			local tank = workTool.cp.waterReceiverTrigger;
 			
 			if tank then
-				-- courseplay:debug(('        tank.WaterTrailerActivatable=%s, tank.waterTrailerActivatable=%s'):format(tostring(tank.WaterTrailerActivatable), tostring(tank.waterTrailerActivatable)), 23);
+				 --courseplay:debug(('        tank.WaterTrailerActivatable=%s, tank.waterTrailerActivatable=%s'):format(tostring(tank.WaterTrailerActivatable), tostring(tank.waterTrailerActivatable)), 23);
 				local activatable, isFilling, setterFn;
 				if tank.isWaterMod then -- WaterMod
 					activatable = tank.WaterTrailerActivatable;
@@ -170,20 +192,19 @@ function courseplay:handleMode8(vehicle, load, unload, allowedToDrive, lx, lz, d
 				-- courseplay:debug(('        isUnloading=%s, totalFillLevelPercent=%.2f, prevFillLevelPct=%.2f, equal=%s, followAtFillLevel=%d, timerThrough=%s'):format(tostring(vehicle.cp.isUnloading), vehicle.cp.totalFillLevelPercent, vehicle.cp.prevFillLevelPct, tostring(vehicle.cp.totalFillLevelPercent == vehicle.cp.prevFillLevelPct), vehicle.cp.followAtFillLevel, tostring(courseplay:timerIsThrough(vehicle, 'fillLevelChange', false))), 23);
 				if vehicle.cp.totalFillLevelPercent == vehicle.cp.prevFillLevelPct and vehicle.cp.totalFillLevelPercent < vehicle.cp.followAtFillLevel and courseplay:timerIsThrough(vehicle, 'fillLevelChange', false) then
 					driveOn = true; -- drive on if fillLevelPct doesn't change for 7 seconds and fill level is < followAtFillLevel
+					vehicle.cp.isUnloading = false;
 					courseplay:debug('        no fillLevel change for 7 seconds -> driveOn', 23);
 				end;
 			end;
 		elseif driveOn then
 			courseplay:debug('        totalFillLevelPercent == 0 or tank.waterTankFillLevel == tank.waterTankCapacity -> driveOn', 23);
+			vehicle.cp.isUnloading = false;
 		end;
 
 		vehicle.cp.prevFillLevelPct = vehicle.cp.totalFillLevelPercent;
 
 		if driveOn and not vehicle.cp.isUnloading then
-			vehicle.cp.prevFillLevelPct = nil;
 			courseplay:cancelWait(vehicle);
-			vehicle.cp.isUnloaded = true;
-			vehicle.cp.isUnloading = false;
 			if workTool.cp.waterReceiverTrigger then
 				courseplay:debug('        driveOn -> set waterReceiverTrigger to nil', 23);
 				workTool.cp.waterReceiverTrigger = nil;
@@ -193,3 +214,16 @@ function courseplay:handleMode8(vehicle, load, unload, allowedToDrive, lx, lz, d
 
 	return allowedToDrive, lx, lz;
 end;
+
+function courseplay:resetMode8(vehicle)
+	vehicle.cp.prevFillLevelPct = nil;
+	vehicle.cp.isUnloaded = true;
+	vehicle.cp.isUnloading = false;
+	if courseplay:getCustomTimerExists(vehicle,'fillLevelChange')  then 
+		--print("reset existing timer")
+		courseplay:resetCustomTimer(vehicle,'fillLevelChange',true)
+	end
+	if  vehicle.cp.waypointIndex >= vehicle.cp.waitPoints[vehicle.cp.numWaitPoints] and vehicle.cp.fillTrigger == nil then
+		courseplay:changeRunCounter(vehicle, false)
+	end;
+end

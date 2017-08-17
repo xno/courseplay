@@ -22,6 +22,7 @@ function courseplay:setNameVariable(workTool)
 		elseif spec == Baler 			   then workTool.cp.hasSpecializationBaler 				 = true;
 		elseif spec == Combine 			   then workTool.cp.hasSpecializationCombine 			 = true;
 		elseif spec == Cover 			   then workTool.cp.hasSpecializationCover				 = true;
+		elseif spec == Crawler 			   then workTool.cp.hasSpecializationCrawler			 = true;
 		elseif spec == Cultivator 		   then workTool.cp.hasSpecializationCultivator 		 = true;
 		elseif spec == Cutter 			   then workTool.cp.hasSpecializationCutter 			 = true;
 		elseif spec == Cylindered 		   then workTool.cp.hasSpecializationCylindered 		 = true;
@@ -41,7 +42,8 @@ function courseplay:setNameVariable(workTool)
 		elseif spec == WaterTrailer		   then workTool.cp.hasSpecializationWaterTrailer		 = true;
 		elseif spec == Windrower 		   then workTool.cp.hasSpecializationWindrower 			 = true;
 		elseif spec == Leveler 		   	   then workTool.cp.hasSpecializationLeveler 			 = true;
-		elseif spec == Overloading 		   then workTool.cp.hasSpecializationOverloader			 = true;	
+		elseif spec == Overloading 		   then workTool.cp.hasSpecializationOverloader			 = true;
+		elseif spec == Trailer	 		   then workTool.cp.hasSpecializationTrailer			 = true;		
 		end;
 	end;
 
@@ -176,8 +178,8 @@ function courseplay:setNameVariable(workTool)
 	-- ###########################################################
 
 	-- [7] MOD OTHER TOOLS
-
-
+	elseif workTool.cp.xmlFileName == 'kuhnTF1500.xml' then
+		workTool.cp.isKuhnTF1500 = true;
 	-- ###########################################################
 	-- END OF MODS
 	-- ###########################################################
@@ -237,22 +239,12 @@ function courseplay:setNameVariable(workTool)
 	elseif workTool.cp.xmlFileName == 'SP400F.xml' then
 		workTool.cp.isSP400F = true;
 		workTool.cp.directionNodeZOffset = 2.15;
-		workTool.cp.showDirectionNode = true; -- Only for debug mode 12
 		workTool.cp.widthWillCollideOnTurn = true;
 
-	-- Trucks [Giants]
-	elseif workTool.cp.xmlFileName == 'americanTruckDualAxle.xml' then
-		workTool.cp.directionNodeZOffset = 3.471;
-		workTool.cp.showDirectionNode = true; -- Only for debug mode 12
-	elseif workTool.cp.xmlFileName == 'americanTruckOneAxle.xml' then
-		workTool.cp.directionNodeZOffset = 2.317;
-		workTool.cp.showDirectionNode = true; -- Only for debug mode 12
-	elseif workTool.cp.xmlFileName == 'tatraPhoenix.xml' then
-		workTool.cp.directionNodeZOffset = 1.525;
-		workTool.cp.showDirectionNode = true; -- Only for debug mode 12
-	elseif workTool.cp.xmlFileName == 'manTGS18480.xml' then
-		workTool.cp.directionNodeZOffset = 1.959;
-		workTool.cp.showDirectionNode = true; -- Only for debug mode 12
+	--Big Bud 747 [Giants Big Bud DLC]
+	elseif workTool.cp.xmlFileName == 'bigBud747.xml' then
+		workTool.cp.overwriteTurnRadius = 9;
+
 
 	-- ###########################################################
 	-- [3] TRAILERS
@@ -273,7 +265,7 @@ function courseplay:setNameVariable(workTool)
 		workTool.cp.mode9TrafficIgnoreVehicle = true
 		if workTool.attacherVehicle ~= nil then
 			workTool.attacherVehicle.cp.mode9TrafficIgnoreVehicle = true
-	end
+		end
 
 	-- Joskin Modulo 2 [Giants]
 	elseif workTool.cp.xmlFileName == 'joskinModulo.xml' then
@@ -317,7 +309,6 @@ function courseplay:setNameVariable(workTool)
 	-- JCB 435S [Giants]
 	elseif workTool.cp.xmlFileName == 'jcb435s.xml' then
 		workTool.cp.directionNodeZOffset = -0.705;
-		workTool.cp.showDirectionNode = true; -- Only for debug mode 12
 
 	-- CULTIVATORS [Giants]
 	-- Horsch Tiger 10 LT [Giants]
@@ -332,6 +323,23 @@ function courseplay:setNameVariable(workTool)
 	-- Kuhn DC401 [Giants Kuhn DLC]
 	elseif workTool.cp.xmlFileName == 'kuhnDC401.xml' then
 		workTool.cp.isKuhnDC401 = true;
+
+	-- Bednar Swifter SM 18000 [Giants Big Bud DLC]
+	elseif workTool.cp.xmlFileName == 'bednarSM18000.xml' then
+		workTool.cp.isBednarSM18000 = true;
+		workTool.cp.notToBeReversed = true; --TODO Fix reverseing with this tool. Should be able to reverse but kinks out if it tries.
+
+	-- Flexi Coil ST 820 [Giants Big Bud DLC]
+	elseif workTool.cp.xmlFileName == 'flexicoilST820.xml' then
+		workTool.cp.isFlexicoilST820 = true;
+		workTool.cp.overwriteTurnRadius = 7;
+		workTool.cp.notToBeReversed = true; --TODO Fix reverseing with this tool. Should be able to reverse but kinks out if it tries.
+
+	--Cultiplow Platinum 8m [Giants Big Bud DLC]
+	elseif workTool.cp.xmlFileName == 'agrisemCultiplowPlatinum8m.xml' then
+		workTool.cp.isAgrisemCultiplowPlatinum8m = true;
+		workTool.cp.notToBeReversed = true; --TODO Fix reverseing with this tool. Should be able to reverse but kinks out if it tries.
+		workTool.cp.overwriteTurnRadius = 7;
 
 	-- PLOUGHS [Giants]
 	-- Amazone Cayron 200 [Giants]
@@ -351,6 +359,7 @@ function courseplay:setNameVariable(workTool)
 	elseif workTool.cp.xmlFileName == 'salford8312.xml' then
 		workTool.cp.isSalford8312 = true;
 		workTool.cp.notToBeReversed = true;
+		workTool.cp.overwriteTurnRadius = 9;
 
 	-- Lemken Titan 11 [Giants]
 	elseif workTool.cp.xmlFileName == 'lemkenTitan11.xml' then
@@ -359,10 +368,37 @@ function courseplay:setNameVariable(workTool)
 		workTool.cp.notToBeReversed = true;
 		workTool.cp.overwriteTurnRadius = 4.5;
 
+	-- Gregoire Besson SPSL 9 [Giants Big Bud DLC]
+	elseif workTool.cp.xmlFileName == 'gregoireBessonSPSL9.xml' then
+		workTool.cp.isGregoireBessonSPSL9 = true;
+		workTool.cp.notToBeReversed = true;
+		workTool.cp.implementWheelAlwaysOnGround = true;
+		workTool.cp.overwriteTurnRadius = 6;
+
+	-- Kuhn Discolander XM52 [Giants Kuhn DLC]
 	elseif workTool.cp.xmlFileName == 'kuhnDiscolanderXM.xml' then
-		workTool.cp.isKuhnDiscolanderXM52 = true
+		workTool.cp.isKuhnDiscolanderXM52 = true;
 
 	-- SEEDERS [Giants]
+
+	--Seed Kawk 980 Air Cart [Giants Big Bud DLC]
+	elseif workTool.cp.xmlFileName == 'seedHawk980AirCart.xml' then
+		workTool.cp.isSeedHawk980AirCart = true;
+		workTool.cp.notToBeReversed = true;
+
+	--Hatzenbichler TH1400 [Giants Big Bud DLC]
+	elseif workTool.cp.xmlFileName == 'hatzenbichlerTH1400.xml' then
+		workTool.cp.isHatzenbichlerTH1400 = true;
+		workTool.cp.notToBeReversed = true;
+
+	--Htzenbichler Terminator 18 [Giants Big Bud DLC]
+	elseif workTool.cp.xmlFileName == 'hatzenbichlerTerminator18.xml' then
+		workTool.cp.isHatzenbichlerTerminator18 = true;
+
+	--Seed Hawk XL Toolbar 84ft [Giants Big Bud DLC]
+	elseif	 workTool.cp.xmlFileName == 'seedHawkXLAirDrill84.xml' then
+		workTool.cp.isSeedHawkXLAirDrill84 = true;
+		workTool.cp.overwriteTurnRadius = 10;
 
 	end;
 	-- ###########################################################
@@ -542,6 +578,11 @@ function courseplay:handleSpecialTools(self,workTool,unfold,lower,turnOn,allowed
 		return false ,allowedToDrive,forceSpeedLimit;
 	end;
 
+	--Seed Kawk 980 Air Cart or Hatzenbichler TH1400. Theses are the fill tanks for the Big Bud DLC. Returns true for special tools so it is ingored in the folding sequence
+	if workTool.cp.isSeedHawk980AirCart or workTool.cp.isHatzenbichlerTH1400 then
+		return true ,allowedToDrive,forceSpeedLimit;
+	end;
+
 	return false, allowedToDrive,forceSpeedLimit;
 end
 
@@ -556,16 +597,32 @@ function courseplay:askForSpecialSettings(self, object)
 	-- object.cp.haveInversedRidgeMarkerState:	(Boolean)				If the ridmarker is using the wrong side in auto mode, set this value to true
 	-- object.cp.realUnfoldDirectionIsReversed:	(Boolean)				If the tool unfolds when driving roads and folds when working fields, then set this one to true to reverse the folding order.
 	-- object.cp.specialUnloadDistance:			(Distance in meters)	Able to set the distance to the waiting point when it needs to unload. Used by bale loaders. Distance from trailer's turning point to the rear unloading point.
+	-- self.cp.changeDirAngle					(Angle in Degrees)		Overwrite the default automatic direction change angle, used in turn maneuvers.
 	-- self.cp.noStopOnEdge:                    (Boolean)               Set this to true if it dont need to stop the work tool while turning.
 	--																	Some work tool types automatically set this to true.
 	-- self.cp.noStopOnTurn:					(Boolean)				Set this to true if the work tool don't need to stop for 1½ sec before turning.
 	--																	Some work tool types automatically set this to true.
 	-- self.cp.backMarkerOffset:				(Distance in meters)	If the implement stops to early or to late, you can specify then it needs to raise/lower or turn on/off the work tool
+	-- object.cp.noWorkArea						(Boolean)				Some implement have workarea that don't work. This will have set markers skip over thoses tools
 	-- TODO: Add description for all the special varialbes that is usable here.
 
 	courseplay:debug(('%s: askForSpecialSettings(..., %q)'):format(nameNum(self), nameNum(object)), 6);
 
 	local automaticToolOffsetX;
+	-- VEHICLES
+	if self.cp.isGrimmeTectron415 then
+		self.cp.changeDirAngle = 5;
+		self.cp.noStopOnTurn = true;
+		self.cp.noStopOnEdge = true;
+		self.isStrawEnabled = false;
+
+	elseif self.cp.isHolmerTerraDosT4_40 then
+		self.cp.changeDirAngle = 20;
+		self.cp.noStopOnTurn = true;
+		self.cp.noStopOnEdge = true;
+		self.cp.backMarkerOffset = 4.5;
+		self.isStrawEnabled = false;
+	end;
 
 	-- OBJECTS
 	if object.cp.isSP400F then
@@ -590,7 +647,9 @@ function courseplay:askForSpecialSettings(self, object)
 		automaticToolOffsetX = -0.2; -- ToolOffsetX is 0.2 meters to the left
 
 	elseif object.cp.isSalford8312 then
-		automaticToolOffsetX = 0.5; -- ToolOffsetX is 0.5 meters to the right
+		automaticToolOffsetX = 0.4; -- ToolOffsetX is 0.4 meters to the right
+		object.cp.backMarkerOffsetCorection = -7.5;
+		object.cp.frontMarkerOffsetCorection = -10;
 
 	elseif object.cp.isLemkenTitan11 then
 		automaticToolOffsetX = 0.8; -- ToolOffsetX is 0.8 meters to the right
@@ -647,11 +706,19 @@ function courseplay:askForSpecialSettings(self, object)
 		object.cp.frontMarkerOffsetCorection = 5.6;
 		object.cp.backMarkerOffsetCorection = -4.5;
 
-	elseif self.cp.isHolmerTerraDosT4_40 then
-		self.cp.noStopOnTurn = true;
-		self.cp.noStopOnEdge = true;
-		self.cp.backMarkerOffset = 4.5;
-		self.isStrawEnabled = false;
+	elseif object.cp.isHatzenbichlerTerminator18 then
+		object.cp.frontMarkerOffsetCorection = -6.5;
+		object.cp.backMarkerOffsetCorection = -6.5;
+
+	elseif object.cp.isHatzenbichlerTH1400 then
+		object.cp.noWorkArea = true;
+
+	elseif object.cp.isGregoireBessonSPSL9 then
+		automaticToolOffsetX = 2.1;
+
+	elseif object.cp.isBednarSM18000 then
+		object.cp.backMarkerOffsetCorection = -3.25;
+
 	end;
 
 	if self.cp.mode == courseplay.MODE_LIQUIDMANURE_TRANSPORT then
@@ -676,6 +743,10 @@ function courseplay:getSpecialWorkWidth(workTool)
 			specialWorkWidth = 2.9;
 		elseif workTool.cp.isGrimmeSE260 then
 			specialWorkWidth = 1.6
+		elseif workTool.cp.isKuhnTF1500 then
+			specialWorkWidth = 0
+		elseif workTool.cp.isGregoireBessonSPSL9 then
+			specialWorkWidth = 10.5
 		end
 	end;
 

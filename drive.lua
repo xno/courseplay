@@ -6,9 +6,38 @@ local avoidWorkAreaType = {};
 
 -- drives recored course
 function courseplay:drive(self, dt)
+	-- Reset Character each 2 min to prevent glitching out.
+	if courseplay:timerIsThrough(self, "resetCharacter", false) then
+		if self.currentHelper == nil then
+			self.currentHelper = HelperUtil.getRandomHelper()
+		end;
+		if self.vehicleCharacter ~= nil then
+			self.vehicleCharacter:delete();
+			self.vehicleCharacter:loadCharacter(self.currentHelper.xmlFilename, getUserRandomizedMpColor(self.currentHelper.name));
+			if self.isEntered then
+				self.vehicleCharacter:setCharacterVisibility(false);
+			end;
+		end;
+		--print("Character have been reset!");
+		courseplay:setCustomTimer(self, "resetCharacter", 300);
+	end;
+
+	if self.cp.saveFuel then
+		if self.isMotorStarted then
+			--print("stop Order")
+			courseplay:setEngineState(self, false);
+		end
+	elseif not self.isMotorStarted then
+		courseplay:setEngineState(self, true);
+		--("start Order")
+	elseif not courseplay:getIsEngineReady(self) then	
+		AIVehicleUtil.driveInDirection(self, dt, 30, -1, 0, 28, allowedToDrive, moveForwards, 0, 1) 
+	end;
+	
 	if not courseplay:getCanUseCpMode(self) then
 		return;
 	end;
+	
 	--keeping steering disabled
 	if self.steeringEnabled then
 		self.steeringEnabled = false;
@@ -83,9 +112,12 @@ function courseplay:drive(self, dt)
 		courseplay:unregisterFromCombine(self, self.cp.activeCombine)
 	end]]
 
+
 	-- current position
 	local ctx, cty, ctz = getWorldTranslation(self.cp.DirectionNode);
-
+	if self.Waypoints[self.cp.waypointIndex].rev and self.cp.oldDirectionNode then
+		ctx, cty, ctz = getWorldTranslation(self.cp.oldDirectionNode);
+	end;
 	if self.cp.waypointIndex > self.cp.numWaypoints then
 		courseplay:debug(string.format("drive %d: %s: self.cp.waypointIndex (%s) > self.cp.numWaypoints (%s)", debug.getinfo(1).currentline, nameNum(self), tostring(self.cp.waypointIndex), tostring(self.cp.numWaypoints)), 12); --this should never happen
 		courseplay:setWaypointIndex(self, self.cp.numWaypoints);
@@ -96,9 +128,17 @@ function courseplay:drive(self, dt)
 		cx, cz = self.Waypoints[self.cp.waypointIndex].cx, self.Waypoints[self.cp.waypointIndex].cz
 	end
 
-	-- HORIZONTAL/VERTICAL OFFSET
+	-- FIELDWORK - HORIZONTAL/VERTICAL OFFSET
 	if courseplay:getIsVehicleOffsetValid(self) then
 		cx, cz = courseplay:getVehicleOffsettedCoords(self, cx, cz);
+		if courseplay.debugChannels[12] and self.cp.isTurning == nil then
+			drawDebugPoint(cx, cty+3, cz, 0, 1 , 1, 1);
+		end;
+	end;
+
+	-- LOAD/UNLOAD/WAIT - HORIZONTAL/VERTICAL OFFSET
+	if courseplay:getIsVehicleOffsetValid(self, true) then
+		cx, cz = courseplay:getVehicleOffsettedCoords(self, cx, cz, true);
 		if courseplay.debugChannels[12] and self.cp.isTurning == nil then
 			drawDebugPoint(cx, cty+3, cz, 0, 1 , 1, 1);
 		end;
@@ -225,10 +265,34 @@ function courseplay:drive(self, dt)
 	local isBypassing = false
 	local isCrawlingToWait = false
 	local isWaitingThisLoop = false
+	local drive_on = false
 	local wayPointIsWait = self.Waypoints[self.cp.previousWaypointIndex].wait
 	local wayPointIsUnload = self.Waypoints[self.cp.previousWaypointIndex].unload
 	local wayPointIsRevUnload = wayPointIsUnload and self.Waypoints[self.cp.previousWaypointIndex].rev
 	local stopForUnload = false
+	local breakCode = false	
+	local revUnloadingPoint = 0
+	
+	if self.Waypoints[self.cp.previousWaypointIndex].rev and self.cp.numUnloadPoints > 0 then
+		for i=1,self.cp.numUnloadPoints do
+			local index = self.cp.unloadPoints[i]
+			if self.Waypoints[index].rev then
+				revUnloadingPoint = index
+			end
+		end
+	end
+	
+	if revUnloadingPoint > 0 then
+		stopForUnload,breakCode  = courseplay:handleUnloading(self,true,dt,revUnloadingPoint)
+		if stopForUnload then
+			allowedToDrive = false;
+		end
+		if breakCode then
+			return;
+		end
+	end
+	
+	
 	-- ### WAITING POINTS - START
 	if (wayPointIsWait or wayPointIsUnload) and self.cp.wait then
 		isWaitingThisLoop = true
@@ -238,15 +302,18 @@ function courseplay:drive(self, dt)
 		end;
 		if self.cp.mode <= 2 then
 			if wayPointIsUnload then
-				stopForUnload = courseplay:handleUnloading(self,wayPointIsRevUnload)
+				stopForUnload,breakCode  = courseplay:handleUnloading(self,wayPointIsRevUnload,dt)
 			elseif self.cp.mode == 1 and wayPointIsWait then
-				CpManager:setGlobalInfoText(self, 'WAIT_POINT');
+				if self.cp.hasAugerWagon then
+					courseplay:handle_mode1(self, allowedToDrive, dt);
+				else
+					CpManager:setGlobalInfoText(self, 'WAIT_POINT');
+				end;
 			end;
 		elseif self.cp.mode == 3 and self.cp.workToolAttached then
 			courseplay:handleMode3(self, allowedToDrive, dt);
 
 		elseif self.cp.mode == 4 then
-			local drive_on = false
 			if self.cp.previousWaypointIndex == self.cp.startWork then
 				courseplay:setVehicleWait(self, false);
 			elseif self.cp.previousWaypointIndex == self.cp.stopWork and self.cp.abortWork ~= nil then
@@ -271,7 +338,11 @@ function courseplay:drive(self, dt)
 			end
 		elseif self.cp.mode == 6 then
 			if wayPointIsUnload then
-				stopForUnload = courseplay:handleUnloading(self,wayPointIsRevUnload)
+				if self.cp.makeHeaps then
+					stopForUnload = courseplay:handleHeapUnloading(self);
+				else
+					stopForUnload,breakCode = courseplay:handleUnloading(self,wayPointIsRevUnload,dt);
+				end;
 			elseif self.cp.previousWaypointIndex == self.cp.startWork then
 				courseplay:setVehicleWait(self, false);
 			elseif self.cp.previousWaypointIndex == self.cp.stopWork and self.cp.abortWork ~= nil then
@@ -281,38 +352,46 @@ function courseplay:drive(self, dt)
 					CpManager:setGlobalInfoText(self, 'UNLOADING_BALE');
 				else
 					CpManager:setGlobalInfoText(self, 'OVERLOADING_POINT');
-				end
-				if self.cp.totalFillLevelPercent == 0 or drive_on then
+
+					-- Set Timer if unloading pipe takes time before empty.
+					if self.getFirstEnabledFillType and self.pipeParticleSystems and self.cp.totalFillLevelPercent > 0 then
+						local filltype = self:getFirstEnabledFillType();
+						if filltype ~= FillUtil.FILLTYPE_UNKNOWN and self.pipeParticleSystems[filltype] then
+							local stopTime = self.pipeParticleSystems[filltype][1].stopTime;
+							if stopTime then
+								courseplay:setCustomTimer(self, "waitUntilPipeIsEmpty", stopTime);
+							end;
+						end;
+					end;
+				end;
+				if (self.cp.totalFillLevelPercent == 0 and courseplay:timerIsThrough(self, "waitUntilPipeIsEmpty")) or drive_on then
+					courseplay:resetCustomTimer(self, "waitUntilPipeIsEmpty", true);
 					courseplay:setVehicleWait(self, false);
 				end;
 			end;
 		elseif self.cp.mode == 7 then
-			if self.cp.previousWaypointIndex == self.cp.startWork then
+			if wayPointIsUnload and self.cp.makeHeaps then
+					stopForUnload = courseplay:handleHeapUnloading(self);
+			elseif wayPointIsWait then
 				if self.cp.totalFillLevel > 0 then
-					if self.pipeCurrentState ~= 2 then
-						self:setPipeState(2)
-					end
-					if self.cp.mode7makeHeaps then
-						if self:getCanTipToGround() then
-							if not self.dischargeToGround then
-								self.cp.speeds.discharge = courseplay:getDischargeSpeed(self)
-								self:setDischargeToGround(true)
-								courseplay:setVehicleWait(self, false);
-							end
-						else
-							-- TODO show message "not able to discharge"
-						end
-					else
-						CpManager:setGlobalInfoText(self, 'OVERLOADING_POINT');
-					end
-				else
+					CpManager:setGlobalInfoText(self, 'OVERLOADING_POINT');
+
+					-- Set Timer if unloading pipe takes time before empty.
+					if self.getFirstEnabledFillType and self.pipeParticleSystems and self.cp.totalFillLevelPercent > 0 then
+						local filltype = self:getFirstEnabledFillType();
+						if filltype ~= FillUtil.FILLTYPE_UNKNOWN and self.pipeParticleSystems[filltype] then
+							local stopTime = self.pipeParticleSystems[filltype][1].stopTime;
+							if stopTime then
+								courseplay:setCustomTimer(self, "waitUntilPipeIsEmpty", stopTime);
+							end;
+						end;
+					end;
+				elseif courseplay:timerIsThrough(self, "waitUntilPipeIsEmpty") then
+					courseplay:resetCustomTimer(self, "waitUntilPipeIsEmpty", true);
 					courseplay:setVehicleWait(self, false);
 					self.cp.isUnloaded = true
 				end
-			end
-			if self.cp.previousWaypointIndex == self.cp.stopWork and self.cp.totalFillLevel == 0 then
-				courseplay:setVehicleWait(self, false);
-			end 
+			end;
 		elseif self.cp.mode == 8 then
 			allowedToDrive, lx, lz = courseplay:handleMode8(self, false, true, allowedToDrive, lx, lz, dt);
 		elseif self.cp.mode == 9 then
@@ -358,24 +437,37 @@ function courseplay:drive(self, dt)
 		elseif stopForUnload then
 			allowedToDrive = false;
 		end;
+		
+		if breakCode then
+			return
+		end
+		
 	-- ### WAITING POINTS - END
 
 	-- ### NON-WAITING POINTS
 	else
 		-- MODES 1 & 2: unloading in trigger
 		if (self.cp.mode == 1 or (self.cp.mode == 2 and self.cp.isLoaded)) and self.cp.totalFillLevel ~= nil and self.cp.tipRefOffset ~= nil and self.cp.workToolAttached then
-			if self.cp.currentTipTrigger == nil and self.cp.totalFillLevel > 0 and self.cp.waypointIndex > 2 and self.cp.waypointIndex < self.cp.numWaypoints and not self.Waypoints[self.cp.waypointIndex].rev then
+			if not self.cp.hasAugerWagon and self.cp.currentTipTrigger == nil and self.cp.totalFillLevel > 0 and self.cp.waypointIndex > 2 and self.cp.waypointIndex < self.cp.numWaypoints and not self.Waypoints[self.cp.waypointIndex].rev then
 				courseplay:doTriggerRaycasts(self, 'tipTrigger', 'fwd', true, tx, ty, tz, nx, ny, nz);
 			end;
 
-			allowedToDrive = courseplay:handle_mode1(self, allowedToDrive);
+			allowedToDrive,breakCode = courseplay:handle_mode1(self, allowedToDrive, dt);
 		end;
+		
+		if breakCode then
+			return
+		end
 		
 		--resetTrailer when empty after unloading in Bunkersilo
 		if self.cp.totalFillLevel == 0 then
 			for _,tipper in pairs (self.cp.workTools) do
-				if tipper.tipState ~= nil and tipper.tipState == Trailer.TIPSTATE_OPEN then
+				if tipper.tipState ~= nil and (tipper.tipState == Trailer.TIPSTATE_OPENING or tipper.tipState == Trailer.TIPSTATE_OPEN) then
 					tipper:toggleTipState();
+				end
+				if (tipper.tipState == Trailer.TIPSTATE_CLOSED or tipper.tipState == Trailer.TIPSTATE_CLOSING) and self.cp.keepOnTipping then
+					self.cp.keepOnTipping = false
+					--print("reset vehicle.cp.keepOnTipping")
 				end
 			end
 		end
@@ -410,12 +502,17 @@ function courseplay:drive(self, dt)
 				end
 			end;
 
+		-- MODE 6-7: HEAP UNLOADING
+		elseif (self.cp.mode == 6 or self.cp.mode == 7) and self.cp.makeHeaps then
+			courseplay:handleHeapUnloading(self);
+
+
 		-- MODE 8: REFILL LIQUID MANURE TRANSPORT
 		elseif self.cp.mode == 8 then
 			allowedToDrive, lx, lz = courseplay:handleMode8(self, true, false, allowedToDrive, lx, lz, dt, tx, ty, tz, nx, ny, nz);
 		end;
 
-		--[[ MAP WEIGHT STATION
+		-- MAP WEIGHT STATION
 		if courseplay:canUseWeightStation(self) then
 			if self.cp.curMapWeightStation ~= nil or (self.cp.fillTrigger ~= nil and courseplay.triggers.all[self.cp.fillTrigger].isWeightStation) then
 				allowedToDrive = courseplay:handleMapWeightStation(self, allowedToDrive);
@@ -423,7 +520,6 @@ function courseplay:drive(self, dt)
 				courseplay:doTriggerRaycasts(self, 'specialTrigger', 'fwd', false, tx, ty, tz, nx, ny, nz);
 			end;
 		end;
-		]]
 
 		--VEHICLE DAMAGE
 		if self.damageLevel then
@@ -499,6 +595,26 @@ function courseplay:drive(self, dt)
 			allowedToDrive = false;
 			CpManager:setGlobalInfoText(self, 'END_POINT_MODE_1');
 		end;
+
+		--STOP AT END OF RUNCOUNTER
+		if self.cp.runCounter >= self.cp.runNumber then
+			if self.cp.mode == 8 and (self.cp.fillTrigger or self.cp.isInFilltrigger) and not self.cp.runCounterBool and not courseplay:waypointsHaveAttr(self, self.cp.waypointIndex, -3, 3, 'wait', true, false) then
+				allowedToDrive = false;
+				self.cp.runReset = true;
+				courseplay:debug(string.format('%s: Mode8 Has tried to stop', nameNum(self)), 12);
+				CpManager:setGlobalInfoText(self, 'END_POINT_MODE_8');
+			elseif self.cp.mode == 1 and self.cp.waypointIndex == self.cp.numWaypoints then
+				allowedToDrive = false;
+				self.cp.runReset = true;
+				CpManager:setGlobalInfoText(self, 'END_POINT_MODE_1');
+				courseplay:debug(string.format('%s: Mode 1 Has tried to stop', nameNum(self)), 12);
+			elseif self.cp.runCounter > self.cp.runNumber then --Something broke stop.
+				allowedToDrive = false;
+				self.cp.runReset = true
+				courseplay:debug(string.format('%s: Something went wrong with runcounter stopping', nameNum(self)), 12);
+				CpManager:setGlobalInfoText(self, 'END_POINT_MODE_8');
+			end;
+		end;
 	end;
 	-- ### NON-WAITING POINTS END
 
@@ -519,12 +635,16 @@ function courseplay:drive(self, dt)
 
 	-- MODE 6
 	elseif self.cp.mode == 6 and self.cp.startWork ~= nil and self.cp.stopWork ~= nil then
-		allowedToDrive, workArea, workSpeed, activeTipper, isFinishingWork,refSpeed = courseplay:handle_mode6(self, allowedToDrive, workSpeed, lx, lz,refSpeed);
+		allowedToDrive, workArea, workSpeed, breakCode, isFinishingWork,refSpeed = courseplay:handle_mode6(self, allowedToDrive, workSpeed, lx, lz,refSpeed,dt);
 		speedDebugLine = ("drive("..tostring(debug.getinfo(1).currentline-1).."): refSpeed = "..tostring(refSpeed))
 		if not workArea and self.cp.currentTipTrigger == nil and self.cp.totalFillLevel and self.cp.totalFillLevel > 0 and self.capacity == nil and self.cp.tipRefOffset ~= nil and not self.Waypoints[self.cp.waypointIndex].rev then
 			courseplay:doTriggerRaycasts(self, 'tipTrigger', 'fwd', true, tx, ty, tz, nx, ny, nz);
 		end;
 
+		if breakCode then
+			return
+		end
+		
 	-- MODE 9
 	elseif self.cp.mode == 9 then
 		allowedToDrive,lx,lz  = courseplay:handle_mode9(self,self.cp.totalFillLevelPercent, allowedToDrive,lx,lz, dt);
@@ -540,6 +660,7 @@ function courseplay:drive(self, dt)
 		end
 		
 		if not continue then
+			courseplay:checkSaveFuel(self,allowedToDrive)
 			return;
 		end;
 		speedDebugLine = ("drive("..tostring(debug.getinfo(1).currentline-4).."): refSpeed = "..tostring(refSpeed))
@@ -556,12 +677,19 @@ function courseplay:drive(self, dt)
 			local minCoverWaypoint = self.cp.mode == 1 and 4 or 3;
 			showCover = self.cp.waypointIndex >= minCoverWaypoint and self.cp.waypointIndex < self.cp.numWaypoints and self.cp.currentTipTrigger == nil and self.cp.trailerFillDistance == nil and not courseplay:waypointsHaveAttr(self, self.cp.waypointIndex, -1, 2, "unload", true, false);
 		elseif self.cp.mode == 4 then 
-			showCover = true; --will be handled in courseplay:openCloseCover() to prevent extra loops
+			if self.cp.waitPoints[3] and self.cp.previousWaypointIndex == self.cp.waitPoints[3] then
+			    -- open cover at loading point
+				showCover = false;
+			else
+				showCover = true; --will be handled in courseplay:openCloseCover() to prevent extra loops
+			end;
 		else
 			showCover = not workArea and self.cp.currentTipTrigger == nil;
 		end;
 
 		courseplay:openCloseCover(self, dt, showCover, self.cp.currentTipTrigger ~= nil);
+	elseif self.cp.tipperHasCover then
+		courseplay:openCloseCover(self, dt, false);
 	end;
 
 	-- CHECK TRAFFIC
@@ -605,7 +733,8 @@ function courseplay:drive(self, dt)
 		end
 	end
 	-- MODE 9 END
-
+	
+	courseplay:checkSaveFuel(self,allowedToDrive)
 	
 	-- allowedToDrive false -> STOP OR HOLD POSITION
 	if not allowedToDrive then
@@ -770,7 +899,7 @@ function courseplay:drive(self, dt)
 			self.cp.isReverseBackToPoint = false;
 		end;
 	end
-	if self.cp.mode7makeHeaps and self.cp.waypointIndex > self.cp.startWork + 1	and self.cp.waypointIndex <= self.cp.stopWork and self.cp.totalFillLevel > 0 then
+	if self.cp.makeHeaps and self.cp.waypointIndex >= self.cp.heapStart - 1	and self.cp.waypointIndex <= self.cp.heapStop and self.cp.totalFillLevel > 0 then
 			refSpeed = self.cp.speeds.discharge
 			speedDebugLine = ("drive("..tostring(debug.getinfo(1).currentline-1).."): refSpeed = "..tostring(refSpeed))	
 			forceTrueSpeed = true
@@ -875,7 +1004,14 @@ function courseplay:drive(self, dt)
 
 			-- Using false to disable the driveToPoint. This could be made into an setting option later on.
 			local useDriveToPoint = false --and self.cp.mode == 1 or self.cp.mode == 5 or (self.cp.waypointIndex > 4 and (self.cp.mode == 2 or self.cp.mode == 3));
+			local disableLongCollisionCheck = workArea;
 			if self.Waypoints[self.cp.waypointIndex].rev or not useDriveToPoint then
+				if self.Waypoints[self.cp.waypointIndex].rev then
+					if self.cp.revSteeringAngle then
+						steeringAngle = self.cp.revSteeringAngle;
+					end;
+					disableLongCollisionCheck = true;
+				end;
 				if math.abs(self.lastSpeedReal) < 0.0001 and not g_currentMission.missionInfo.stopAndGoBraking then
 					if not fwd then
 						self.nextMovingDirection = -1
@@ -895,7 +1031,7 @@ function courseplay:drive(self, dt)
 			end;
 			
 			if not isBypassing then
-				courseplay:setTrafficCollision(self, lx, lz, workArea)
+				courseplay:setTrafficCollision(self, lx, lz, disableLongCollisionCheck);
 			end
 		end
 	elseif not isWaitingThisLoop then
@@ -918,6 +1054,9 @@ function courseplay:drive(self, dt)
 			courseplay:setStopAtEnd(self, false);
 			courseplay:setIsLoaded(self, false);
 			courseplay:setIsRecording(self, false);
+			if self.cp.mode == 1 then
+				courseplay:changeRunCounter(self, false)
+			end;
 			self:setCpVar('canDrive',true,courseplay.isClient)
 		end
 	end
@@ -925,7 +1064,7 @@ end
 -- END drive();
 
 
-function courseplay:setTrafficCollision(vehicle, lx, lz, workArea)
+function courseplay:setTrafficCollision(vehicle, lx, lz, disadleLongCheck)
 	--local goForRaycast = vehicle.cp.mode == 1 or (vehicle.cp.mode == 3 and vehicle.cp.waypointIndex > 3) or vehicle.cp.mode == 5 or vehicle.cp.mode == 8 or ((vehicle.cp.mode == 4 or vehicle.cp.mode == 6) and vehicle.cp.waypointIndex > vehicle.cp.stopWork) or (vehicle.cp.mode == 2 and vehicle.cp.waypointIndex > 3)
 	--print("lx: "..tostring(lx).."	distance: "..tostring(distance))
 	--local maxlx = 0.5; --sin(maxAngle); --sin30°  old was : 0.7071067 sin 45°
@@ -945,7 +1084,7 @@ function courseplay:setTrafficCollision(vehicle, lx, lz, workArea)
 		local recordNumber = vehicle.cp.waypointIndex
 		if vehicle.cp.collidingVehicleId == nil then
 			for i=2,vehicle.cp.numTrafficCollisionTriggers do
-				if workArea or recordNumber + i >= vehicle.cp.numWaypoints or recordNumber < 2 then
+				if disadleLongCheck or recordNumber + i >= vehicle.cp.numWaypoints or recordNumber < 2 then
 					courseplay:setCollisionDirection(vehicle.cp.trafficCollisionTriggers[i-1], vehicle.cp.trafficCollisionTriggers[i], 0, -1);
 				else
 					
@@ -1141,35 +1280,50 @@ function courseplay:regulateTrafficSpeed(vehicle,refSpeed,allowedToDrive)
 	return refSpeed
 end
 
-function courseplay:getIsVehicleOffsetValid(vehicle)
-	local valid = vehicle.cp.totalOffsetX ~= nil and vehicle.cp.toolOffsetZ ~= nil and (vehicle.cp.totalOffsetX ~= 0 or vehicle.cp.toolOffsetZ ~= 0);
+function courseplay:getIsVehicleOffsetValid(vehicle, isLoadUnloadWait)
+	local valid = (vehicle.cp.totalOffsetX ~= nil and vehicle.cp.toolOffsetZ ~= nil and (vehicle.cp.totalOffsetX ~= 0 or vehicle.cp.toolOffsetZ ~= 0))
+			   or (isLoadUnloadWait == true and vehicle.cp.loadUnloadOffsetX ~= nil and vehicle.cp.loadUnloadOffsetZ ~= nil and (vehicle.cp.loadUnloadOffsetX ~= 0 or vehicle.cp.loadUnloadOffsetZ ~= 0));
 	if not valid then
 		return false;
 	end;
+	vehicle.cp.skipOffsetX = false;
 
-	if vehicle.cp.mode == 3 then
-		if vehicle.cp.laneOffset ~= 0 then
-			courseplay:changeLaneOffset(vehicle, nil, 0);
+	if not isLoadUnloadWait then
+		if vehicle.cp.mode == courseplay.MODE_SEED_FERTILIZE or vehicle.cp.mode == courseplay.MODE_FIELDWORK then
+			return vehicle.cp.waypointIndex >= vehicle.cp.startWork and vehicle.cp.waypointIndex <= vehicle.cp.stopWork;
 		end;
-		return vehicle.cp.waypointIndex > 2 and vehicle.cp.waypointIndex > vehicle.cp.waitPoints[1] - 6 and vehicle.cp.waypointIndex <= vehicle.cp.waitPoints[1] + 3;
-	elseif vehicle.cp.mode == 4 or vehicle.cp.mode == 6 then
-		return vehicle.cp.waypointIndex >= vehicle.cp.startWork and vehicle.cp.waypointIndex <= vehicle.cp.stopWork;
-	elseif vehicle.cp.mode == 7 then
-		if vehicle.cp.laneOffset ~= 0 then
-			courseplay:changeLaneOffset(vehicle, nil, 0);
+	else
+		if vehicle.cp.mode == courseplay.MODE_GRAIN_TRANSPORT then
+			-- We are around the start area and dont have an overloader attached.
+			if not vehicle.cp.hasAugerWagon and (vehicle.cp.waypointIndex > #vehicle.Waypoints - 6 or vehicle.cp.waypointIndex <= 4) then
+				return true;
+			end;
+			-- Check if we are near an wait point
+			if courseplay:isInWaitArea(vehicle, 6, 3) then
+				if not vehicle.cp.hasAugerWagon then
+					vehicle.cp.skipOffsetX = true;
+				end;
+				return true;
+			end;
+			-- Check if we are near an unload point
+			if courseplay:isInUnloadArea(vehicle, 6, 3) then
+				return true;
+			end;
+		elseif vehicle.cp.mode == courseplay.MODE_OVERLOADER then
+			return courseplay:isInWaitArea(vehicle, 6, 3, 2, 1);
+		elseif vehicle.cp.mode == courseplay.MODE_FIELDWORK then
+			return (vehicle.cp.makeHeaps and courseplay:isInUnloadArea(vehicle, 6, 3, 3, 1, 2)) or courseplay:isInUnloadArea(vehicle, 6, 3, 3);
+		elseif vehicle.cp.mode == courseplay.MODE_COMBINE_SELF_UNLOADING then
+			return (courseplay:isInWaitArea(vehicle, 6, 3, 3, 1) or (vehicle.cp.makeHeaps and courseplay:isInUnloadArea(vehicle, 6, 3, 3, 1, 2)) ) and not vehicle.cp.mode7GoBackBeforeUnloading;
+		elseif vehicle.cp.mode == courseplay.MODE_LIQUIDMANURE_TRANSPORT then
+			return courseplay:isInWaitArea(vehicle, 6, 3, nil, 1) or courseplay:isInUnloadArea(vehicle, 6, 3, nil, 1);
 		end;
-		return vehicle.cp.waypointIndex > 3 and vehicle.cp.waypointIndex > vehicle.cp.waitPoints[1] - 6 and vehicle.cp.waypointIndex <= vehicle.cp.waitPoints[1] + 3 and not vehicle.cp.mode7GoBackBeforeUnloading;
-	elseif vehicle.cp.mode == 8 then
-		if vehicle.cp.laneOffset ~= 0 then
-			courseplay:changeLaneOffset(vehicle, nil, 0);
-		end;
-		return vehicle.cp.waypointIndex > vehicle.cp.waitPoints[1] - 6 and vehicle.cp.waypointIndex <= vehicle.cp.waitPoints[1] + 3;
-	end; 
+	end;
 
 	return false;
 end;
 
-function courseplay:getVehicleOffsettedCoords(vehicle, x, z)
+function courseplay:getVehicleOffsettedCoords(vehicle, x, z, isLoadUnloadWait, skipXOffset)
 	--courseplay:debug(string.format('%s: waypoint before offset: cx=%.2f, cz=%.2f', nameNum(vehicle), cx, cz), 2);
 	local fromX, fromZ, toX, toZ;
 	if vehicle.cp.waypointIndex == 1 then
@@ -1191,12 +1345,61 @@ function courseplay:getVehicleOffsettedCoords(vehicle, x, z)
 
 	local dx,_,dz,dist = courseplay:getWorldDirection(fromX, 0, fromZ, toX, 0, toZ)
 	if dist and dist > 0.01 then
-		x = x - dz * vehicle.cp.totalOffsetX + dx * vehicle.cp.toolOffsetZ;
-		z = z + dx * vehicle.cp.totalOffsetX + dz * vehicle.cp.toolOffsetZ;
+		if not isLoadUnloadWait then
+			x = x - dz * vehicle.cp.totalOffsetX + dx * vehicle.cp.toolOffsetZ;
+			z = z + dx * vehicle.cp.totalOffsetX + dz * vehicle.cp.toolOffsetZ;
+		else
+			if not vehicle.cp.skipOffsetX then
+				x = x - dz * vehicle.cp.loadUnloadOffsetX + dx * vehicle.cp.loadUnloadOffsetZ;
+			end;
+			z = z + dx * vehicle.cp.loadUnloadOffsetX + dz * vehicle.cp.loadUnloadOffsetZ;
+		end;
 	end;
 	--courseplay:debug(string.format('%s: waypoint after offset [%.1fm]: cx=%.2f, cz=%.2f', nameNum(vehicle), vehicle.cp.totalOffsetX, cx, cz), 2);
 
 	return x, z;
+end;
+
+function courseplay:isInWaitArea(vehicle, wpBefore, wpAfter, fromWP, waitIndex, toWaitIndex)
+	local fromWP = Utils.getNoNil(fromWP, 0);
+
+	if vehicle.cp.numWaitPoints > 0 and vehicle.cp.waypointIndex > fromWP then
+		local wpBefore = Utils.getNoNil(wpBefore, 1);
+		local wpAfter = Utils.getNoNil(wpAfter, 0);
+		if waitIndex and vehicle.cp.waitPoints[waitIndex] then
+			local toWaitIndex = Utils.getNoNil(toWaitIndex, waitIndex);
+			return vehicle.cp.waypointIndex > vehicle.cp.waitPoints[waitIndex] - wpBefore and vehicle.cp.waypointIndex <= vehicle.cp.waitPoints[toWaitIndex] + wpAfter;
+		else
+			for _, waitWayPointNum in ipairs(vehicle.cp.waitPoints) do
+				if vehicle.cp.waypointIndex > waitWayPointNum - wpBefore and vehicle.cp.waypointIndex <= waitWayPointNum + wpAfter then
+					return true;
+				end;
+			end;
+		end;
+	end;
+
+	return false;
+end;
+
+function courseplay:isInUnloadArea(vehicle, wpBefore, wpAfter, fromWP, unloadIndex, toUnloadIndex)
+	local fromWP = Utils.getNoNil(fromWP, 0);
+
+	if vehicle.cp.numUnloadPoints > 0 and vehicle.cp.waypointIndex > fromWP then
+		local wpBefore = Utils.getNoNil(wpBefore, 1);
+		local wpAfter = Utils.getNoNil(wpAfter, 0);
+		if unloadIndex and vehicle.cp.unloadPoints[unloadIndex] then
+			local toUnloadIndex = Utils.getNoNil(toUnloadIndex, unloadIndex);
+			return vehicle.cp.waypointIndex > vehicle.cp.unloadPoints[unloadIndex] - wpBefore and vehicle.cp.waypointIndex <= vehicle.cp.unloadPoints[toUnloadIndex] + wpAfter;
+		else
+			for _, unloadWayPointNum in ipairs(vehicle.cp.unloadPoints) do
+				if vehicle.cp.waypointIndex > unloadWayPointNum - wpBefore and vehicle.cp.waypointIndex <= unloadWayPointNum + wpAfter then
+					return true;
+				end;
+			end;
+		end;
+	end;
+
+	return false;
 end;
 
 function courseplay:handleMapWeightStation(vehicle, allowedToDrive)
@@ -1212,9 +1415,8 @@ function courseplay:handleMapWeightStation(vehicle, allowedToDrive)
 			vehicle.cp.fillTrigger = nil;
 			return allowedToDrive;
 		end;
-
-		name = tostring(station.name);
-		x, y, z = getWorldTranslation(station.id);
+		name = tostring(getName(station.triggerId));
+		x, y, z = getWorldTranslation(station.triggerId);
 		local distToStation = courseplay:distanceToPoint(vehicle, x, y, z);
 
 		-- too far away from station -> abort
@@ -1225,53 +1427,48 @@ function courseplay:handleMapWeightStation(vehicle, allowedToDrive)
 		end;
 
 
-		if #station.vehiclesInTrigger > 0 then
-			local iAmInTrigger = false;
-			for i,id in pairs(station.vehiclesInTrigger) do
-				local vehInTrigger = g_currentMission.nodeToVehicle[id];
-				-- VEHICLE (or some part of it) IN TRIGGER
-				if vehicle.cpTrafficCollisionIgnoreList[id] then
-					courseplay:debug(('%s: station=%s, part of me is in trigger -> set iAmInTrigger to true'):format(nameNum(vehicle), name), 20);
-					iAmInTrigger = true;
+		local iAmInTrigger = false;
+		for triggerVehicle, num in pairs(station.triggerVehicles) do
+			-- VEHICLE (or some part of it) IN TRIGGER
+			if vehicle.cpTrafficCollisionIgnoreList[triggerVehicle.rootNode] then
+				courseplay:debug(('%s: station=%s, part of me is in trigger -> set iAmInTrigger to true'):format(nameNum(vehicle), name), 20);
+				iAmInTrigger = true;
 
-				-- OTHER VEHICLE IN TRIGGER
-				else
-					allowedToDrive = false;
-					courseplay:debug(('%s: station=%s, other vehicle in trigger -> stop'):format(nameNum(vehicle), name), 20);
-					return allowedToDrive;
-				end;
+			-- OTHER VEHICLE IN TRIGGER
+			else
+				allowedToDrive = false;
+				courseplay:debug(('%s: station=%s, other vehicle in trigger -> stop'):format(nameNum(vehicle), name), 20);
+				return allowedToDrive;
 			end;
+		end;
 
-			if iAmInTrigger then -- ... and no other vehicle is in trigger
-				vehicle.cp.fillTrigger = nil;
-				isInFrontOfStation = false;
-				vehicle.cp.curMapWeightStation = station;
+		if iAmInTrigger then -- ... and no other vehicle is in trigger
+			vehicle.cp.fillTrigger = nil;
+			isInFrontOfStation = false;
+			vehicle.cp.curMapWeightStation = station;
 
-				-- CHECK IF WE'RE DRIVING IN THE CORRECT DIRECTION
-				_, _, vehToCenterZ = worldToLocal(vehicle.cp.DirectionNode, x, y, z);
-				local displayX, displayY, displayZ = getWorldTranslation(vehicle.cp.curMapWeightStation.digits[1]);
-				local _, _, vehToDisZ = worldToLocal(vehicle.cp.DirectionNode, displayX, displayY, displayZ);
-				if vehToDisZ < vehToCenterZ then -- display is closer than weightStation center
-					vehicle.cp.curMapWeightStation = nil;
-					courseplay:debug(('%s: station=%s, vehToCenterZ=%.1f, vehToDisZ=%.1f [display closer than center] -> wrong direction: set curMapWeightStation to nil, return allowedToDrive=%s'):format(nameNum(vehicle), name, vehToCenterZ, vehToDisZ, tostring(allowedToDrive)), 20);
-					return allowedToDrive;
-				else
-					courseplay:debug(('%s: station=%s, vehToCenterZ=%.1f, vehToDisZ=%.1f [center closer than display] -> correct direction'):format(nameNum(vehicle), name, vehToCenterZ, vehToDisZ), 20);
-				end;
+			-- CHECK IF WE'RE DRIVING IN THE CORRECT DIRECTION
+			_, _, vehToCenterZ = worldToLocal(vehicle.cp.DirectionNode, x, y, z);
+			--local displayX, displayY, displayZ = getWorldTranslation(vehicle.cp.curMapWeightStation.digits[1]);
+			local displayX, displayY, displayZ = getWorldTranslation(vehicle.cp.curMapWeightStation.displayNumbers);
+			local _, _, vehToDisZ = worldToLocal(vehicle.cp.DirectionNode, displayX, displayY, displayZ);
+			if vehToDisZ < vehToCenterZ then -- display is closer than weightStation center
+				vehicle.cp.curMapWeightStation = nil;
+				courseplay:debug(('%s: station=%s, vehToCenterZ=%.1f, vehToDisZ=%.1f [display closer than center] -> wrong direction: set curMapWeightStation to nil, return allowedToDrive=%s'):format(nameNum(vehicle), name, vehToCenterZ, vehToDisZ, tostring(allowedToDrive)), 20);
+				return allowedToDrive;
+			else
+				courseplay:debug(('%s: station=%s, vehToCenterZ=%.1f, vehToDisZ=%.1f [center closer than display] -> correct direction'):format(nameNum(vehicle), name, vehToCenterZ, vehToDisZ), 20);
 			end;
 		end;
 	end;
 
+	-- Set isInFilltrigger to true, so we slow down on the trigger.
 	vehicle.cp.isInFilltrigger = true; --vehicle.cp.curMapWeightStation ~= nil;
 
 	if vehicle.cp.curMapWeightStation ~= nil then
-		name = tostring(vehicle.cp.curMapWeightStation.name);
+		name = tostring(getName(vehicle.cp.curMapWeightStation.triggerId));
 		vehicle.cp.fillTrigger = nil; -- really make sure fillTrigger is nil
-		if vehicle.cp.curMapWeightStation.senke and vehicle.cp.curMapWeightStation.senke.index then
-			x, y, z = getWorldTranslation(vehicle.cp.curMapWeightStation.senke.index);
-		else
-			x, y, z = getWorldTranslation(vehicle.cp.curMapWeightStation.id);
-		end;
+		x, y, z = getWorldTranslation(vehicle.cp.curMapWeightStation.triggerId);
 		vehToCenterX, _, vehToCenterZ = worldToLocal(vehicle.cp.DirectionNode, x, y, z);
 
 		-- make sure to abort in case we somehow missed the stopping point
@@ -1287,8 +1484,12 @@ function courseplay:handleMapWeightStation(vehicle, allowedToDrive)
 			stopAt = (vehicle.cp.totalLength * 0.5 + vehicle.cp.totalLengthOffset) * -1;
 		end;
 		local brakeDistance = pow(vehicle.cp.speeds.turn * 0.1, 2);
-		-- local brakeDistance = pow(vehicle.cp.curSpeed * 0.1, 2);
-		-- local brakeDistance = 1;
+
+		local isStopping = false;
+		if vehicle.cp.curSpeed > 0.1 then
+			courseplay:setCustomTimer(vehicle, "WeightStationWaitTime", 5);
+			isStopping = true;
+		end;
 
 		-- tractor + trailer on scale -> stop
 		if vehToCenterZ and vehToCenterZ <= stopAt + brakeDistance then
@@ -1296,20 +1497,20 @@ function courseplay:handleMapWeightStation(vehicle, allowedToDrive)
 			allowedToDrive = false;
 
 			-- vehicle in trigger, still moving
-			if vehicle.cp.curMapWeightStation.timerSet == 1 then
-				courseplay:debug(('%s: station=%s, vehToCenterZ=%.1f, vehicle at center -> stop, timerSet=1'):format(nameNum(vehicle), name, vehToCenterZ), 20);
+			if isStopping then
+				courseplay:debug(('%s: station=%s, vehToCenterZ=%.1f, vehicle at center -> stop'):format(nameNum(vehicle), name, vehToCenterZ), 20);
 
 			-- vehicle in trigger, not moving, being weighed
-			elseif vehicle.cp.curMapWeightStation.timerSet == 2 or vehicle.cp.curMapWeightStation.timerSet == 4 then
-				courseplay:debug(('%s: station=%s, vehicle is being weighed, timerSet=%d'):format(nameNum(vehicle), name, vehicle.cp.curMapWeightStation.timerSet), 20);
+			elseif not courseplay:timerIsThrough(vehicle, "WeightStationWaitTime", false) then
+				CpManager:setGlobalInfoText(vehicle, 'WEIGHING_VEHICLE');
+				courseplay:debug(('%s: station=%s, vehicle is being weighed'):format(nameNum(vehicle), name), 20);
 
 			-- weighing finished -> continue
-			elseif vehicle.cp.curMapWeightStation.timerSet == 3 then
+			else
 				allowedToDrive = origAllowedToDrive;
 				vehicle.cp.curMapWeightStation = nil;
-				courseplay:debug(('%s: station=%s, vehToCenterZ=%.1f, timerSet=3 [WEIGHING DONE] -> set curMapWeightStation to nil, allowedToDrive=%s'):format(nameNum(vehicle), name, vehToCenterZ, tostring(allowedToDrive)), 20);
-			else
-				courseplay:debug(('%s: station=%s, timerSet=%d'):format(nameNum(vehicle), name, vehicle.cp.curMapWeightStation.timerSet), 20);
+				courseplay:resetCustomTimer(vehicle, "WeightStationWaitTime", true)
+				courseplay:debug(('%s: station=%s, vehToCenterZ=%.1f, [WEIGHING DONE] -> set curMapWeightStation to nil, allowedToDrive=%s'):format(nameNum(vehicle), name, vehToCenterZ, tostring(allowedToDrive)), 20);
 			end;
 
 			return allowedToDrive;
@@ -1362,9 +1563,9 @@ function courseplay:setFourWheelDrive(vehicle, workArea)
 	local changed = false;
 
 	-- set 4WD
-	local awdOn = vehicle.cp.driveControl.alwaysUseFourWD or workArea or vehicle.cp.isBGATipping or vehicle.cp.slippingStage ~= 0 or vehicle.cp.mode == 9 or vehicle.cp.mode == 10 or (vehicle.cp.mode == 2 and vehicle.cp.modeState > 1);
+	local awdOn = workArea or vehicle.cp.isBGATipping or vehicle.cp.slippingStage ~= 0 or vehicle.cp.mode == 9 or vehicle.cp.mode == 10 or (vehicle.cp.mode == 2 and (vehicle.cp.modeState > 1 or vehicle.cp.waypointIndex < 3));
 	local awdOff = not vehicle.cp.driveControl.alwaysUseFourWD and not workArea and not vehicle.cp.isBGATipping and vehicle.cp.slippingStage == 0 and vehicle.cp.mode ~= 9 and not (vehicle.cp.mode == 2 and vehicle.cp.modeState > 1);
-	if awdOn and not vehicle.driveControl.fourWDandDifferentials.fourWheel then
+	if (awdOn or vehicle.cp.driveControl.mode > 0) and not vehicle.driveControl.fourWDandDifferentials.fourWheel then
 		courseplay:debug(('%s: set fourWheel to true'):format(nameNum(vehicle)), 14);
 		vehicle.driveControl.fourWDandDifferentials.fourWheel = true;
 		courseplay:setCustomTimer(vehicle, '4WDminTime', 5);
@@ -1377,14 +1578,17 @@ function courseplay:setFourWheelDrive(vehicle, workArea)
 
 	-- set differential lock
 	local targetLockStatus = vehicle.cp.slippingStage > 1 or (vehicle.cp.mode == 10 and vehicle.cp.waypointIndex == 1);
-	if vehicle.driveControl.fourWDandDifferentials.diffLockFront ~= targetLockStatus then
+	local Front = targetLockStatus or (awdOn and (vehicle.cp.driveControl.mode == 2 or vehicle.cp.driveControl.mode == 4));
+	local Rear = targetLockStatus or (awdOn and (vehicle.cp.driveControl.mode == 3 or vehicle.cp.driveControl.mode == 4));
+
+	if vehicle.driveControl.fourWDandDifferentials.diffLockFront ~= Front then
 		courseplay:debug(('%s: set diffLockFront to %s'):format(nameNum(vehicle), tostring(targetLockStatus)), 14);
-		vehicle.driveControl.fourWDandDifferentials.diffLockFront = targetLockStatus;
+		vehicle.driveControl.fourWDandDifferentials.diffLockFront = Front;
 		changed = true;
 	end;
-	if vehicle.driveControl.fourWDandDifferentials.diffLockBack ~= targetLockStatus then
+	if vehicle.driveControl.fourWDandDifferentials.diffLockBack ~= Rear then
 		courseplay:debug(('%s: set diffLockBack to %s'):format(nameNum(vehicle), tostring(targetLockStatus)), 14);
-		vehicle.driveControl.fourWDandDifferentials.diffLockBack = targetLockStatus;
+		vehicle.driveControl.fourWDandDifferentials.diffLockBack = Rear;
 		changed = true;
 	end;
 
@@ -1500,7 +1704,7 @@ function courseplay:updateFillLevelsAndCapacities(vehicle)
 	--print(string.format("vehicle itself(%s): vehicle.cp.totalCapacity:(%s)",tostring(vehicle.name),tostring(vehicle.cp.totalCapacity)))
 	if vehicle.cp.workTools ~= nil then
 		for _,tool in pairs(vehicle.cp.workTools) do
-			local hasMoreFillUnits = courseplay:setOwnFillLevelsAndCapacities(tool)
+			local hasMoreFillUnits = courseplay:setOwnFillLevelsAndCapacities(tool,vehicle.cp.mode)
 			if hasMoreFillUnits and tool ~= vehicle then
 				vehicle.cp.totalFillLevel = (vehicle.cp.totalFillLevel or 0) + tool.cp.fillLevel
 				vehicle.cp.totalCapacity = (vehicle.cp.totalCapacity or 0 ) + tool.cp.capacity
@@ -1535,6 +1739,13 @@ function courseplay:setOwnFillLevelsAndCapacities(workTool,mode)
 		return false
 	end
 	for index,fillUnit in pairs(workTool.fillUnits) do
+		if mode == 10 and workTool.cp.hasSpecializationLeveler then
+			if not workTool.cp.originalCapacities then
+				workTool.cp.originalCapacities = {}
+				workTool.cp.originalCapacities[index]= fillUnit.capacity
+				fillUnit.capacity = fillUnit.capacity *3
+			end
+		end
 		fillLevel = fillLevel + fillUnit.fillLevel
 		capacity = capacity + fillUnit.capacity
 		if fillLevel ~= nil and capacity ~= nil then
@@ -1597,10 +1808,12 @@ function courseplay:setOwnFillLevelsAndCapacities(workTool,mode)
 end
 
 function courseplay:setCollisionDirection(node, col, colDirX, colDirZ)
-  local parent = getParent(col)
-  local colDirY = 0
-  if parent ~= node then
-    colDirX, colDirY, colDirZ = worldDirectionToLocal(parent, localDirectionToWorld(node, colDirX, 0, colDirZ))
-  end
-  setDirection(col, colDirX, colDirY, colDirZ, 0, 1, 0)
-end
+	local parent = getParent(col)
+	local colDirY = 0
+	if parent ~= node then
+		colDirX, colDirY, colDirZ = worldDirectionToLocal(parent, localDirectionToWorld(node, colDirX, 0, colDirZ))
+	end
+	if not (colDirX == 0 and colDirZ == 0) then
+		setDirection(col, colDirX, colDirY, colDirZ, 0, 1, 0);
+	end;
+end;

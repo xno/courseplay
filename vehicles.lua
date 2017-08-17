@@ -1,5 +1,6 @@
 local abs, max, rad, deg, cos, sin, ceil = math.abs, math.max, math.rad, math.deg, math.cos, math.sin, math.ceil;
 local _;
+local truckAttacherJoint = {};
 -- ##### VEHICLE TOOLS ##### --
 courseplay.attacherJointNodeRotationList = {};
 
@@ -44,14 +45,68 @@ function courseplay:deleteCollisionVehicle(vehicle)
 			g_currentMission.nodeToVehicle[Id] = nil
 		end
 		vehicle.cp.collidingObjects.all[Id] = nil
+		vehicle.cp.collidingObjects[4][Id] = nil
+		
+		courseplay:debug(string.format('%s: 	deleteCollisionVehicle: checking vehicle.cp.collidingObjects.all ', nameNum(vehicle)), 3);
+		local foundOtherId = false
+		local distanceToCollisionVehicle = math.huge
+		local nextCollisionVehicleID = 0
+		for index,_ in pairs(vehicle.cp.collidingObjects.all) do
+			courseplay:debug(string.format('%s: 	deleteCollisionVehicle:also colliding is %s', nameNum(vehicle),tostring(index)), 3);
+			if vehicle.cpTrafficCollisionIgnoreList[index] == nil then
+				foundOtherId = true
+				local collisionVehicle = g_currentMission.nodeToVehicle[index];
+				local distanceToCollisionVehiclefromList = courseplay:distanceToObject(vehicle, collisionVehicle)
+				if distanceToCollisionVehiclefromList < distanceToCollisionVehicle then
+					distanceToCollisionVehicle = distanceToCollisionVehiclefromList
+					nextCollisionVehicleID = index
+					courseplay:debug(string.format('%s: 	deleteCollisionVehicle:its closer', nameNum(vehicle)), 3);
+				end
+			else
+				courseplay:debug(string.format('%s: 	deleteCollisionVehicle:%s is on ignoreList so ignore it', nameNum(vehicle),tostring(index)), 3);
+			end
+		end
 		--vehicle.CPnumCollidingVehicles = max(vehicle.CPnumCollidingVehicles - 1, 0);
 		--if vehicle.CPnumCollidingVehicles == 0 then
 		--vehicle.numCollidingVehicles[triggerId] = max(vehicle.numCollidingVehicles[triggerId]-1, 0);
-		vehicle.cp.collidingObjects[4][Id] = nil
-		vehicle.cp.collidingVehicleId = nil
-		courseplay:debug(string.format('%s: 	deleteCollisionVehicle: setting "collidingVehicleId" to nil', nameNum(vehicle)), 3);
+		if foundOtherId then
+			courseplay:debug(string.format('%s: 	deleteCollisionVehicle: next "self.cp.collidingVehicleId " is %s', nameNum(vehicle),tostring(nextCollisionVehicleID)), 3);
+			vehicle.cp.collidingVehicleId = nextCollisionVehicleID;
+		else
+			vehicle.cp.collidingVehicleId = nil
+			courseplay:debug(string.format('%s: 	deleteCollisionVehicle: setting "self.cp.collidingVehicleId" to nil', nameNum(vehicle)), 3);
+		end
 	end
 end
+
+function courseplay:disableCropDestruction(vehicle)
+	-- Make sure we have the cp table
+	if vehicle.cp == nil then vehicle.cp = {}; end;
+
+	-- Disable crop destruction if enabled
+	if vehicle.cropDestruction then
+		vehicle.cp.cropDestructionIsActiveBackup = vehicle.cropDestruction.isActive;
+		vehicle.cropDestruction.isActive = false;
+	end;
+
+	-- CHECK ATTACHED IMPLEMENTS
+	for _,impl in pairs(vehicle.attachedImplements) do
+		courseplay:disableCropDestruction(impl.object);
+	end;
+end;
+
+function courseplay:enableCropDestruction(vehicle)
+	-- Enable crop destruction if backup is set
+	if vehicle.cropDestruction and vehicle.cp and vehicle.cp.cropDestructionIsActiveBackup ~= nil then
+		vehicle.cropDestruction.isActive = vehicle.cp.cropDestructionIsActiveBackup;
+		vehicle.cp.cropDestructionIsActiveBackup = nil;
+	end;
+
+	-- CHECK ATTACHED IMPLEMENTS
+	for _,impl in pairs(vehicle.attachedImplements) do
+		courseplay:enableCropDestruction(impl.object);
+	end;
+end;
 
 --- courseplay:findJointNodeConnectingToNode(workTool, fromNode, toNode, doReverse)
 --	Returns: (node, backtrack, rotLimits)
@@ -791,14 +846,14 @@ function courseplay:getToolTurnRadius(workTool)
 		for i, attachedImplement in pairs(attacherVehicle.attachedImplements) do
 			if attachedImplement.object == workTool then
 				-- Check if AIVehicleUtil can calculate it for us
-				--local AIMaxToolRadius = AIVehicleUtil.getMaxToolRadius(attachedImplement) * 0.5;
-				--if AIMaxToolRadius > 0 then
-				--	if workToolDistances.attacherJointOrPivotToTurningNode > AIMaxToolRadius then
-				--		AIMaxToolRadius = workToolDistances.attacherJointOrPivotToTurningNode;
-				--	end;
-				--	courseplay:debug(('%s -> TurnRadius: AIVehicleUtil.getMaxToolRadius=%.2fm'):format(nameNum(workTool), AIMaxToolRadius), 6);
-				--	return AIMaxToolRadius;
-				--end;
+				local AIMaxToolRadius = AIVehicleUtil.getMaxToolRadius(attachedImplement) * 0.5;
+				if AIMaxToolRadius > 0 then
+					if workToolDistances.attacherJointOrPivotToTurningNode > AIMaxToolRadius then
+						AIMaxToolRadius = workToolDistances.attacherJointOrPivotToTurningNode;
+					end;
+					courseplay:debug(('%s -> TurnRadius: AIVehicleUtil.getMaxToolRadius=%.2fm'):format(nameNum(workTool), AIMaxToolRadius), 6);
+					return AIMaxToolRadius;
+				end;
 
 				-- AIVehicleUtil could not calculate it, so we do it our self.
 				rotMax = attachedImplement.upperRotLimit[2];
@@ -1070,6 +1125,96 @@ function courseplay:getVehicleTurnRadius(vehicle)
 	end;
 
 	return turnRadius
+end;
+
+function courseplay:getVehicleDirectionNodeOffset(vehicle, directionNode)
+	local offset = 0;
+	local isTruck = false;
+
+	-- Build the truckAttacherJoint list if not already done.
+	if #truckAttacherJoint == 0 then
+		truckAttacherJoint[AttacherJoints.jointTypeNameToInt["semitrailer"]] = true;
+		truckAttacherJoint[AttacherJoints.jointTypeNameToInt["hookLift"]] = true;
+		if AttacherJoints.jointTypeNameToInt["terraVariant"] then
+			truckAttacherJoint[AttacherJoints.jointTypeNameToInt["terraVariant"]] = true;
+		end;
+	end;
+
+	-- Make sure we are not some standard combine/crawler/articulated vehicle
+	if not (vehicle.cp.hasSpecializationArticulatedAxis or vehicle.cp.hasSpecializationCombine or vehicle.cp.hasSpecializationCrawler or courseplay:isHarvesterSteerable(vehicle)) then
+	    local isAllWheelStering = false;
+		local haveStraitWheels = false;
+		local haveTurningWheels = false;
+		local dirNodeOffset = 0;
+		local wheelBase = 0;
+		local minDis, maxDis = 0, 0;
+		local _, y, _ = getWorldTranslation(directionNode);
+
+		-- Check for starit and turning wheels
+		for index, wheel in ipairs(vehicle.wheels) do
+			if wheel.rotMax == 0 and wheel.maxLatStiffness > 0 then
+				haveStraitWheels = true;
+			else
+				haveTurningWheels = true;
+			end;
+		end;
+
+		-- Check if it's actually an four wheel steering
+		if not haveStraitWheels and haveTurningWheels then
+			isAllWheelStering = true;
+			--print("Is All Wheel Stering");
+		end;
+
+		-- Get the distance from the aiVehicleDirectionNode to the front wheels
+		for i, wheel in ipairs(vehicle.wheels) do
+			local x,_,z = getWorldTranslation(wheel.repr);
+			local _,_,dis = worldToLocal(directionNode, x, y, z);
+			if i > 1 then
+				if dis < minDis then minDis = dis; end;
+				if dis > maxDis then maxDis = dis; end;
+			else
+				minDis = dis;
+				maxDis = dis;
+			end;
+		end;
+
+		if isAllWheelStering then
+			dirNodeOffset = maxDis + minDis;
+		else
+			dirNodeOffset = maxDis * 0.75;
+		end;
+		wheelBase = abs(maxDis) + abs(minDis);
+		--print(("wheelBase is %.2fm"):format(wheelBase));
+
+		-- first check for specific attacher joints that normally only trucks have.
+		for index, attacherJoint in ipairs(vehicle.attacherJoints) do
+			if truckAttacherJoint[attacherJoint.jointType] then
+				--print("Is Truck Based on AttacherJoint");
+				isTruck = true;
+			end;
+		end;
+
+		-- If we were not an truck, then check the length, since we could still be an truck based in it's length
+		if not isTruck and wheelBase > 3.5 then
+			--print("Is Truck Based on Wheelbase");
+			isTruck = true;
+		end;
+
+		if isTruck and dirNodeOffset > 0.25 then
+			offset = dirNodeOffset;
+		end;
+	end;
+
+	-- If an offset is set in setNameVariable() then apply it
+	if vehicle.cp.directionNodeZOffset and vehicle.cp.directionNodeZOffset ~= 0 then
+		offset = offset + vehicle.cp.directionNodeZOffset;
+	end;
+
+	--if offset ~= 0 then
+	--	print(("Offset set to %.2fm"):format(offset));
+	--end;
+
+	return offset, isTruck;
 end;
 
 function courseplay:getWheelBase(vehicle, fromTurningNode)

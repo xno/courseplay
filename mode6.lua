@@ -1,8 +1,7 @@
 local max, min = math.max, math.min;
 
-function courseplay:handle_mode6(vehicle, allowedToDrive, workSpeed, lx , lz, refSpeed )
+function courseplay:handle_mode6(vehicle, allowedToDrive, workSpeed, lx , lz, refSpeed,dt )
 	local workTool;
-	local activeTipper = nil
 	local specialTool = false
 	local forceSpeedLimit = refSpeed 
 	local fillLevelPct = 0
@@ -369,9 +368,11 @@ function courseplay:handle_mode6(vehicle, allowedToDrive, workSpeed, lx , lz, re
 
 					-- tipper is not empty and tractor reaches TipTrigger
 					if vehicle.cp.totalFillLevel > 0 and vehicle.cp.currentTipTrigger ~= nil and vehicle.cp.waypointIndex > 3 then
-						allowedToDrive, activeTipper = courseplay:unload_tippers(vehicle, allowedToDrive);
+						allowedToDrive,takeOverSteering = courseplay:unload_tippers(vehicle, allowedToDrive,dt);
 						courseplay:setInfoText(vehicle, "COURSEPLAY_TIPTRIGGER_REACHED");
 					end
+					
+					
 				end;
 			end; --END other tools
 
@@ -408,7 +409,7 @@ function courseplay:handle_mode6(vehicle, allowedToDrive, workSpeed, lx , lz, re
 							courseplay:debug(string.format('%s: unfold order (foldDir=%d)', nameNum(workTool), workTool.cp.realUnfoldDirection), 17);
 							workTool:setFoldDirection(workTool.cp.realUnfoldDirection);
 						end;
-						if not isFolding and isUnfolded and not isTurnedOn then
+						if not isFolding and isUnfolded and not isTurnedOn and not vehicle.cp.saveFuel  then
 							courseplay:debug(string.format('%s: Start Treshing', nameNum(tool)), 12);
 							tool:setIsTurnedOn(true);
 							if pipeState > 0 then
@@ -510,9 +511,9 @@ function courseplay:handle_mode6(vehicle, allowedToDrive, workSpeed, lx , lz, re
 				
 				end
 			 --Stop combine
-			elseif vehicle.cp.waypointIndex == vehicle.cp.stopWork or vehicle.cp.abortWork ~= nil then
+			elseif not workArea or vehicle.cp.previousWaypointIndex == vehicle.cp.stopWork or vehicle.cp.abortWork ~= nil then
 				local isEmpty = tool.cp.fillLevel == 0
-				if vehicle.cp.abortWork == nil and vehicle.cp.wait then
+				if vehicle.cp.abortWork == nil and vehicle.cp.wait and vehicle.cp.previousWaypointIndex == vehicle.cp.stopWork then
 					allowedToDrive = false;
 				end
 				if isEmpty then
@@ -529,6 +530,9 @@ function courseplay:handle_mode6(vehicle, allowedToDrive, workSpeed, lx , lz, re
 						end
 					end	
 					if vehicle.cp.waypointIndex == vehicle.cp.stopWork or (vehicle.cp.abortWork ~= nil and tool.cp.capacity == 0 ) then
+						if  pipeState == 0 and tool.cp.isCombine then
+							tool:setPipeState(1)
+						end
 						if courseplay:isFoldable(workTool) and isEmpty and not isFolding and not isFolded then
 							courseplay:debug(string.format('%s: fold order (foldDir=%d)', nameNum(workTool), -workTool.cp.realUnfoldDirection), 17);
 							workTool:setFoldDirection(-workTool.cp.realUnfoldDirection);
@@ -539,7 +543,7 @@ function courseplay:handle_mode6(vehicle, allowedToDrive, workSpeed, lx , lz, re
 						end;
 					end
 				end
-				if tool.cp.isCombine and not tool.cp.wantsCourseplayer and tool.cp.fillLevel > 0.1 and tool.courseplayers and #(tool.courseplayers) == 0 then
+				if tool.cp.isCombine and not tool.cp.wantsCourseplayer and tool.cp.fillLevel > 0.1 and tool.courseplayers and #(tool.courseplayers) == 0 and vehicle.cp.waypointIndex == vehicle.cp.stopWork then
 					tool.cp.wantsCourseplayer = true
 				end
 			end
@@ -551,7 +555,7 @@ function courseplay:handle_mode6(vehicle, allowedToDrive, workSpeed, lx , lz, re
 						tool:setOverloadingActive(true);
 					end
 				end
-			elseif  pipeState == 0 and tool.cp.isCombine and tool.cp.fillLevel < tool.cp.capacity then
+			elseif  pipeState == 0 and tool.cp.isCombine and tool.cp.fillLevel < tool.cp.capacity and workArea then
 				tool:setPipeState(1)
 			end
 			if tool.cp.waitingForTrailerToUnload then
@@ -565,7 +569,8 @@ function courseplay:handle_mode6(vehicle, allowedToDrive, workSpeed, lx , lz, re
 					local ch, gr = FillUtil.FILLTYPE_CHAFF, FillUtil.FILLTYPE_GRASS_WINDROW;
 					if (tool.pipeParticleSystems and ((tool.pipeParticleSystems[ch] and tool.pipeParticleSystems[ch].isEmitting) 
 					or (tool.pipeParticleSystems[gr] and tool.pipeParticleSystems[gr].isEmitting))) 
-					or pipeState > 0 then
+					or pipeState > 0 
+					or vehicle.cp.turnStage ~= 0 then
 						if tool.lastValidInputFruitType ~= FruitUtil.FRUITTYPE_UNKNOWN then
 							if tool.pipeFoundTrailer then
 								tool.cp.waitingForTrailerToUnload = false;
@@ -626,5 +631,5 @@ function courseplay:handle_mode6(vehicle, allowedToDrive, workSpeed, lx , lz, re
 		isFinishingWork = true
 		vehicle.cp.hasFinishedWork = true
 	end
-	return allowedToDrive, workArea, workSpeed, activeTipper ,isFinishingWork,forceSpeedLimit
+	return allowedToDrive, workArea, workSpeed, takeOverSteering ,isFinishingWork,forceSpeedLimit
 end

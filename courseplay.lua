@@ -30,12 +30,15 @@ courseplay.hud = {};
 courseplay.buttons = {};
 courseplay.fields = {};
 courseplay.generation = {};
+courseplay.clock = 0;
 
 local sonOfaBangSonOfaBoom = {
 	['56bb4a8d3f72d5a31aee0c317302dde5'] = true; -- Thomas
 	['9a9f028043394ff9de1cf6c905b515c1'] = true; -- Satis
 	['c8029c5126f522ec8839ec30fcabc22e'] = true; -- sKyDaNcEr
 	['06475174d922e7dcbb3ed34c0236dbdf'] = true; -- Justin
+	['b74ad095badc54d4334039f2f73f240e'] = true; -- Pops64
+	['3e701b6620453edcd4c170543e72788b'] = true; -- Peter
 };
 CpManager.isDeveloper = sonOfaBangSonOfaBoom[getMD5(g_gameSettings:getValue("nickname"))];
 
@@ -49,7 +52,6 @@ end;
 
 local function initialize()
 	local fileList = {
-		'astar', 
 		'base',
 		'button', 
 		'bypass',
@@ -84,7 +86,17 @@ local function initialize()
 		'toolManager',
 		'triggers', 
 		'turn',
-		'vehicles'
+		'vehicles',
+    'course-generator/courseGenerator',
+    'course-generator/cp',
+    'course-generator/track',
+    'course-generator/center',
+    'course-generator/headland',
+    'course-generator/geo',
+    'course-generator/bspline',
+    'course-generator/file',
+    'course-generator/a-star',
+    'course-generator/pathfinder'
 	};
 
 	local numFiles, numFilesLoaded = #(fileList) + 3, 3; -- + 3 as 'register.lua', 'courseplay.lua' and 'CpManager.lua' have already been loaded
@@ -96,7 +108,7 @@ local function initialize()
 		--print('\t### Courseplay: ' .. filePath .. ' has been loaded');
 		numFilesLoaded = numFilesLoaded + 1;
 	end;
-	
+
 	print(('### Courseplay: initialized %d/%d files (v%s)'):format(numFilesLoaded, numFiles, courseplay.version));
 end;
 
